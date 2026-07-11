@@ -98,12 +98,11 @@ const Container = styled.div`
   flex-direction: column;
   align-items: center;
   min-height: 100svh;
-  width: 100vw;
+  width: 100%;
   background: ${DESIGN.colors.bg.secondary};
   overflow-y: auto;
-  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 40px 16px max(40px, env(safe-area-inset-bottom, 40px));
+  padding: 24px 16px max(24px, env(safe-area-inset-bottom, 24px));
   gap: clamp(8px, 2vh, 20px);
 `;
 

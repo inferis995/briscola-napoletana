@@ -435,16 +435,12 @@ const GlobalStyle = createGlobalStyle`
     background: #0a120a;
     color: #f5f0e8;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
-    overflow: hidden;
-    height: 100%;
     user-select: none;
     -webkit-text-size-adjust: 100%;
   }
 
   html {
-    height: 100%;
     width: 100vw;
-    overflow: hidden;
   }
 `;
 
@@ -455,6 +451,8 @@ const GameWrapper = styled.div`
   height: 100dvh;
   width: 100vw;
   overflow: hidden;
+  position: fixed;
+  inset: 0;
 `;
 
 // ===== CONNECTING SCREEN =====
@@ -473,8 +471,8 @@ const ConnectingWrapper = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100svh;
-  width: 100vw;
+  min-height: 100svh;
+  width: 100%;
   background: ${DESIGN.colors.bg.secondary};
   gap: 32px;
 `;
@@ -516,10 +514,9 @@ const LobbyWrapper = styled.div`
   align-items: safe center;
   justify-content: center;
   min-height: 100svh;
-  width: 100vw;
+  width: 100%;
   background: ${DESIGN.colors.bg.secondary};
   overflow-y: auto;
-  overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
   padding: 20px 20px max(20px, env(safe-area-inset-bottom, 20px));
 `;

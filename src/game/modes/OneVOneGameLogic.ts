@@ -40,6 +40,13 @@ export class OneVOneGameLogic extends BaseGameLogic {
   }
 
   /**
+   * 1v1 uses 2 smazzate per partita.
+   */
+  usesTwoSmazzate(): boolean {
+    return true;
+  }
+
+  /**
    * Override initializeGame — no deck balancing for 1v1.
    * 40 cards: 1 trump + 6 dealt (3 each) + 33 in deck.
    * The trump card acts as the final draw card.
@@ -73,6 +80,7 @@ export class OneVOneGameLogic extends BaseGameLogic {
       gameWinnerId: null,
       lastSwapPlayerId: null,
       roundHistory: [],
+      smazzataNumber: 1,
     };
 
     return this.getState();
@@ -199,8 +207,34 @@ export class OneVOneGameLogic extends BaseGameLogic {
       Object.keys(newStacks).forEach(pid => {
         scores[pid] = newStacks[pid].reduce((total, card) => total + card.score, 0);
       });
-      const maxScore = Math.max(...Object.values(scores));
-      const topPlayers = Object.keys(scores).filter(pid => scores[pid] === maxScore);
+
+      // 2-smazzate logic: after smazzata 1, go to smazzata_complete
+      if (this.usesTwoSmazzate() && this.state.smazzataNumber === 1) {
+        this.state = {
+          ...this.state,
+          phase: 'smazzata_complete',
+          deck: newDeck,
+          trumpCard,
+          playerHands: newHands,
+          playerStacks: newStacks,
+          playedCards: [],
+          finalScores: scores,
+          roundHistory: [...this.state.roundHistory, historyEntry],
+        };
+        return this.getState();
+      }
+
+      // Smazzata 2 (or single-smazzata mode): compute final winner
+      // Combine smazzata1 scores with current scores
+      const combinedScores = { ...scores };
+      if (this.state.smazzata1Scores) {
+        Object.keys(combinedScores).forEach(pid => {
+          combinedScores[pid] += this.state.smazzata1Scores![pid] || 0;
+        });
+      }
+
+      const maxScore = Math.max(...Object.values(combinedScores));
+      const topPlayers = Object.keys(combinedScores).filter(pid => combinedScores[pid] === maxScore);
       const gameWinner = topPlayers.length === 1 ? topPlayers[0] : null;
 
       this.state = {
@@ -211,7 +245,7 @@ export class OneVOneGameLogic extends BaseGameLogic {
         playerHands: newHands,
         playerStacks: newStacks,
         playedCards: [],
-        finalScores: scores,
+        finalScores: combinedScores,
         gameWinnerId: gameWinner,
         roundHistory: [...this.state.roundHistory, historyEntry],
       };

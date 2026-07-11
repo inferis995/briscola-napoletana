@@ -160,6 +160,15 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       return "ok";
     });
 
+    RPC.register('startSecondSmazzata', async (_data: any, _caller: any) => {
+      if (!isHost()) return;
+      const logic = gameLogicRef.current;
+      if (!logic) return;
+      const newState = logic.startSecondSmazzata();
+      setGameStateRef.current(newState, true);
+      return "ok";
+    });
+
     return () => {
       if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
     };
@@ -188,6 +197,11 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   const handlePlayAgain = useCallback(() => {
     if (!amHost) return;
     RPC.call('playAgain', {}, RPC.Mode.HOST);
+  }, [amHost]);
+
+  const handleStartSecondSmazzata = useCallback(() => {
+    if (!amHost) return;
+    RPC.call('startSecondSmazzata', {}, RPC.Mode.HOST);
   }, [amHost]);
 
   const handleQuickChat = useCallback((message: string) => {
@@ -397,6 +411,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       onCardPlay={handleCardPlay}
       onSwapTrump={handleSwapTrump}
       onPlayAgain={handlePlayAgain}
+      onStartSecondSmazzata={handleStartSecondSmazzata}
       isHost={amHost}
       onQuickChat={handleQuickChat}
       quickChatMessage={quickChat}
@@ -409,6 +424,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       onCardPlay={handleCardPlay}
       onSwapTrump={handleSwapTrump}
       onPlayAgain={handlePlayAgain}
+      onStartSecondSmazzata={handleStartSecondSmazzata}
       isHost={amHost}
       onQuickChat={handleQuickChat}
       quickChatMessage={quickChat}

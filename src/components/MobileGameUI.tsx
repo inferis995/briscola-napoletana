@@ -512,6 +512,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
   onCardPlay,
   onSwapTrump,
   onPlayAgain,
+  onStartSecondSmazzata,
   isHost: isHostPlayer,
   onQuickChat,
   quickChatMessage,
@@ -626,6 +627,48 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
     if (!player) return '';
     return player.id === currentPlayerId ? 'You' : getPlayerName(player);
   };
+
+  if (gameState.phase === 'smazzata_complete') {
+    const scores = gameState.finalScores;
+    return (
+      <GameContainer>
+        <GameOverOverlay>
+          <GameOverDialog>
+            <GameOverTitle>SMAZZATA 1</GameOverTitle>
+            <WinnerName style={{ color: DESIGN.colors.accents.cyan, fontSize: '18px' }}>PROSSIMA SMAZZATA</WinnerName>
+            <ScoresGrid>
+              {[...players]
+                .sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
+                .map((player, index) => (
+                  <ScoreRow key={player.id} isWinner={false}>
+                    <div>{index + 1}. {getPlayerName(player)}</div>
+                    <div>{scores[player.id] || 0}</div>
+                  </ScoreRow>
+                ))}
+            </ScoresGrid>
+            {isTeamMode && gameState.teamScores && (
+              <div style={{ marginTop: '8px' }}>
+                <ScoresGrid>
+                  {[1, 2].map(teamNum => (
+                    <ScoreRow key={teamNum} isWinner={false}>
+                      <div style={{ color: TEAM_COLORS[teamNum] }}>Squadra {teamNum}</div>
+                      <div>{gameState.teamScores?.[String(teamNum)] || 0}</div>
+                    </ScoreRow>
+                  ))}
+                </ScoresGrid>
+              </div>
+            )}
+            {isHostPlayer && onStartSecondSmazzata && (
+              <PlayAgainButton onClick={onStartSecondSmazzata}>SECONDA SMAZZATA</PlayAgainButton>
+            )}
+            {!isHostPlayer && (
+              <div style={{ marginTop: '12px', fontSize: '12px', color: DESIGN.colors.text.tertiary }}>In attesa dell'host...</div>
+            )}
+          </GameOverDialog>
+        </GameOverOverlay>
+      </GameContainer>
+    );
+  }
 
   if (gameState.phase === 'game_over') {
     const scores = gameState.finalScores;

@@ -112,6 +112,7 @@ export interface GameUIProps {
   onCardPlay: (card: CardType) => void;
   onSwapTrump: (card: CardType) => void;
   onPlayAgain?: () => void;
+  onStartSecondSmazzata?: () => void;
   isHost?: boolean;
   onQuickChat?: (message: string) => void;
   quickChatMessage?: QuickChatMessage | null;

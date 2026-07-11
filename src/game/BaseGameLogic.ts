@@ -19,6 +19,7 @@ export type GamePhase =
   | 'waiting'
   | 'playing'
   | 'round_complete'
+  | 'smazzata_complete'
   | 'game_over'
   | 'revealing_hands';
 
@@ -48,6 +49,10 @@ export interface GameState {
   teamScores?: { [team: string]: number };
   turnOrder?: string[];
   winnerTeam?: number;
+  // 2 smazzate fields (1v1 and 2v2 only)
+  smazzataNumber: number;
+  smazzata1Scores?: { [playerId: string]: number };
+  smazzata1TeamScores?: { [team: string]: number };
 }
 
 export interface GameConfig {
@@ -84,6 +89,7 @@ export abstract class BaseGameLogic {
       gameWinnerId: null,
       lastSwapPlayerId: null,
       roundHistory: [],
+      smazzataNumber: 1,
     };
   }
 
@@ -138,6 +144,7 @@ export abstract class BaseGameLogic {
       gameWinnerId: null,
       lastSwapPlayerId: null,
       roundHistory: [],
+      smazzataNumber: 1,
     };
 
     return this.getState();
@@ -220,6 +227,35 @@ export abstract class BaseGameLogic {
       lastSwapPlayerId: playerId,
     };
 
+    return this.getState();
+  }
+
+  /**
+   * Whether this mode uses 2 smazzate per partita (1v1 and 2v2).
+   * Override to true in those modes.
+   */
+  usesTwoSmazzate(): boolean {
+    return false;
+  }
+
+  /**
+   * Start the second smazzata (round 2 of 2).
+   * Keeps smazzata1 scores, resets hands/deck/trump.
+   */
+  startSecondSmazzata(): GameState {
+    // Save smazzata 1 scores before resetting
+    const smazzata1Scores = this.evaluateGame().scores;
+    const smazzata1TeamScores = this.state.teamScores
+      ? { ...this.state.teamScores }
+      : undefined;
+
+    // Reinitialize the board (new deck, hands, trump)
+    const newState = this.initializeGame();
+    newState.smazzataNumber = 2;
+    newState.smazzata1Scores = smazzata1Scores;
+    newState.smazzata1TeamScores = smazzata1TeamScores;
+
+    this.state = newState;
     return this.getState();
   }
 

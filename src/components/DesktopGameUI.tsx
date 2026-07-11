@@ -553,6 +553,7 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
   onCardPlay,
   onSwapTrump,
   onPlayAgain,
+  onStartSecondSmazzata,
   isHost: isHostPlayer,
   onQuickChat,
   quickChatMessage,
@@ -667,6 +668,53 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
   const getOpponents = () => {
     return players.filter(p => p.id !== currentPlayerId);
   };
+
+  if (gameState.phase === 'smazzata_complete') {
+    const scores = gameState.finalScores;
+    return (
+      <GameContainer>
+        <GameOverOverlay>
+          <GameOverDialog>
+            <GameOverTitle>SMAZZATA 1 COMPLETATA</GameOverTitle>
+            <WinnerInfo>
+              <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>PROSSIMA SMAZZATA</WinnerName>
+              <WinnerScore>Punteggi prima smazzata (su 120)</WinnerScore>
+            </WinnerInfo>
+            <ScoresGrid>
+              {[...players]
+                .sort((a, b) => (scores[b.id] || 0) - (scores[a.id] || 0))
+                .map((player, index) => (
+                  <ScoreRow key={player.id} isWinner={false}>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '6px' }}>
+                      {index + 1}. {getPlayerName(player)}
+                    </div>
+                    <div>{scores[player.id] || 0}</div>
+                  </ScoreRow>
+                ))}
+            </ScoresGrid>
+            {isTeamMode && gameState.teamScores && (
+              <div style={{ marginTop: DESIGN.spacing.md }}>
+                <ScoresGrid>
+                  {[1, 2].map(teamNum => (
+                    <ScoreRow key={teamNum} isWinner={false}>
+                      <div style={{ color: TEAM_COLORS[teamNum] }}>Squadra {teamNum}</div>
+                      <div>{gameState.teamScores?.[String(teamNum)] || 0}</div>
+                    </ScoreRow>
+                  ))}
+                </ScoresGrid>
+              </div>
+            )}
+            {isHostPlayer && onStartSecondSmazzata && (
+              <PlayAgainButton onClick={onStartSecondSmazzata}>INIZIA SECONDA SMAZZATA</PlayAgainButton>
+            )}
+            {!isHostPlayer && (
+              <div style={{ marginTop: DESIGN.spacing.lg, fontSize: DESIGN.typography.caption.size, color: DESIGN.colors.text.tertiary }}>In attesa che l'host inizi la seconda smazzata...</div>
+            )}
+          </GameOverDialog>
+        </GameOverOverlay>
+      </GameContainer>
+    );
+  }
 
   if (gameState.phase === 'game_over') {
     const scores = gameState.finalScores;

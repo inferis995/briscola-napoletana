@@ -40,6 +40,13 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
   }
 
   /**
+   * 2v2 uses 2 smazzate per partita.
+   */
+  usesTwoSmazzate(): boolean {
+    return true;
+  }
+
+  /**
    * Build a team-alternating turn order starting from a given player.
    * Order: starter(WT) → other1(OT) → teammate(WT) → other2(OT)
    */
@@ -122,6 +129,7 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       roundHistory: [],
       teams,
       turnOrder,
+      smazzataNumber: 1,
     };
 
     return this.getState();
@@ -263,11 +271,41 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
         teamScores[String(team)] += scores[pid];
       });
 
-      // Determine winning team (0 = draw)
-      const winnerTeam = teamScores['1'] === teamScores['2'] ? 0
-        : teamScores['1'] > teamScores['2'] ? 1 : 2;
+      // 2-smazzate logic: after smazzata 1, go to smazzata_complete
+      if (this.usesTwoSmazzate() && this.state.smazzataNumber === 1) {
+        this.state = {
+          ...this.state,
+          phase: 'smazzata_complete',
+          deck: newDeck,
+          trumpCard,
+          playerHands: newHands,
+          playerStacks: newStacks,
+          playedCards: [],
+          finalScores: scores,
+          roundHistory: [...this.state.roundHistory, historyEntry],
+          teamScores,
+          turnOrder: newTurnOrder,
+        };
+        return this.getState();
+      }
 
-      // gameWinnerId = first player of winning team (null on draw)
+      // Smazzata 2: combine scores with smazzata 1
+      const combinedScores = { ...scores };
+      if (this.state.smazzata1Scores) {
+        Object.keys(combinedScores).forEach(pid => {
+          combinedScores[pid] += this.state.smazzata1Scores![pid] || 0;
+        });
+      }
+      const combinedTeamScores: { [team: string]: number } = { '1': 0, '2': 0 };
+      Object.keys(combinedScores).forEach(pid => {
+        const team = teams[pid] || 1;
+        combinedTeamScores[String(team)] += combinedScores[pid];
+      });
+
+      // Determine winning team (0 = draw)
+      const winnerTeam = combinedTeamScores['1'] === combinedTeamScores['2'] ? 0
+        : combinedTeamScores['1'] > combinedTeamScores['2'] ? 1 : 2;
+
       const winnerTeamPlayers = winnerTeam ? this.players.filter(p => teams[p.id] === winnerTeam) : [];
       const gameWinner = winnerTeamPlayers[0]?.id || null;
 
@@ -279,10 +317,10 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
         playerHands: newHands,
         playerStacks: newStacks,
         playedCards: [],
-        finalScores: scores,
+        finalScores: combinedScores,
         gameWinnerId: gameWinner,
         roundHistory: [...this.state.roundHistory, historyEntry],
-        teamScores,
+        teamScores: combinedTeamScores,
         winnerTeam,
         turnOrder: newTurnOrder,
       };

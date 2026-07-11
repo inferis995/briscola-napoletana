@@ -663,24 +663,24 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
       <GameContainer>
         <GameOverOverlay>
           <GameOverDialog>
-            <GameOverTitle>GAME OVER</GameOverTitle>
+            <GameOverTitle>PARTITA FINITA</GameOverTitle>
             {isTeamMode ? (
               <>
                 <WinnerInfo>
                   {isTeamDraw ? (
                     <>
-                      <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>IT'S A DRAW!</WinnerName>
+                      <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>PAREGGIO!</WinnerName>
                       <WinnerScore>
-                        Both teams scored {gameState.teamScores?.['1'] || 0} points
+                        Entrambi i team hanno {gameState.teamScores?.['1'] || 0} punti
                       </WinnerScore>
                     </>
                   ) : (
                     <>
                       <WinnerName style={{ color: TEAM_COLORS[gameState.winnerTeam!] }}>
-                        TEAM {gameState.winnerTeam} WINS!
+                        TEAM {gameState.winnerTeam} VINCE!
                       </WinnerName>
                       <WinnerScore>
-                        {gameState.teamScores?.[String(gameState.winnerTeam)] || 0} points
+                        {gameState.teamScores?.[String(gameState.winnerTeam)] || 0} punti
                       </WinnerScore>
                     </>
                   )}
@@ -714,9 +714,9 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
             ) : isDraw ? (
               <>
                 <WinnerInfo>
-                  <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>IT'S A DRAW!</WinnerName>
+                  <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>PAREGGIO!</WinnerName>
                   <WinnerScore>
-                    {Math.max(...Object.values(scores))} points each
+                    {Math.max(...Object.values(scores))} punti ciascuno
                   </WinnerScore>
                 </WinnerInfo>
                 <ScoresGrid>
@@ -740,7 +740,7 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
               <>
                 <WinnerInfo>
                   <WinnerName>{getPlayerName(winnerPlayer!)}</WinnerName>
-                  <WinnerScore>{scores[winner!]} points</WinnerScore>
+                  <WinnerScore>{scores[winner!]} punti</WinnerScore>
                 </WinnerInfo>
                 <ScoresGrid>
                   {[...players]
@@ -757,10 +757,10 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
               </>
             )}
             {isHostPlayer && onPlayAgain && (
-              <PlayAgainButton onClick={onPlayAgain}>PLAY AGAIN</PlayAgainButton>
+              <PlayAgainButton onClick={onPlayAgain}>RIGIOCA</PlayAgainButton>
             )}
             {!isHostPlayer && (
-              <div style={{ marginTop: DESIGN.spacing.lg, fontSize: DESIGN.typography.caption.size, color: DESIGN.colors.text.tertiary }}>Waiting for host to start a new game...</div>
+              <div style={{ marginTop: DESIGN.spacing.lg, fontSize: DESIGN.typography.caption.size, color: DESIGN.colors.text.tertiary }}>In attesa che l'host inizi una nuova partita...</div>
             )}
             <MatchHistoryButton roundHistory={gameState.roundHistory} players={players} />
           </GameOverDialog>
@@ -795,21 +795,21 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
                   <OpponentName>{getPlayerName(player)}</OpponentName>
                   <div style={{ display: 'flex', gap: '4px', marginTop: '4px', alignItems: 'center' }}>
                     {isCurrentPlayer && (
-                      <span style={{ fontSize: '11px', color: DESIGN.colors.accents.cyan, letterSpacing: '0.5px' }}>YOU</span>
+                      <span style={{ fontSize: '11px', color: DESIGN.colors.accents.cyan, letterSpacing: '0.5px' }}>TU</span>
                     )}
                     {isTeamMode && teams[player.id] && (
-                      <TeamIndicator team={teams[player.id]}>TEAM {teams[player.id]}</TeamIndicator>
+                      <TeamIndicator team={teams[player.id]}>T{teams[player.id]}</TeamIndicator>
                     )}
                   </div>
                 </div>
               </OpponentHeader>
               <OpponentStats>
                 <StatItem>
-                  <div>Hand</div>
+                  <div>Mano</div>
                   <div>{gameState.playerHands[player.id]?.length || 0}</div>
                 </StatItem>
                 <StatItem>
-                  <div>Won</div>
+                  <div>Prese</div>
                   <div>{gameState.playerStacks[player.id]?.length || 0}</div>
                 </StatItem>
               </OpponentStats>
@@ -825,11 +825,11 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
             BRISCOLA NAPOLETANA<GameVersion>v{packageJson.version}</GameVersion>
           </GameTitle>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
-            <RoundInfo>Round {gameState.roundNumber}</RoundInfo>
-            <RulesIconButton onClick={() => setShowRules(true)} title="How to Play">
+            <RoundInfo>Turno {gameState.roundNumber}</RoundInfo>
+            <RulesIconButton onClick={() => setShowRules(true)} title="Come si gioca">
               <RulesIcon />
             </RulesIconButton>
-            <RulesIconButton onClick={() => setShowQuickChat(true)} title="Quick Chat">
+            <RulesIconButton onClick={() => setShowQuickChat(true)} title="Chat veloce">
               <QuickChatIcon />
             </RulesIconButton>
             {isOnline
@@ -844,7 +844,7 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
           <TopRightDock>
             {/* Trump Card */}
             <DeckContainer>
-              <SectionLabel>Trump</SectionLabel>
+              <SectionLabel>Briscola</SectionLabel>
               <CardContainer>
                 {gameState.trumpCard && (
                   <CardComponent
@@ -860,7 +860,7 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
 
             {/* Deck - Stacked Cards */}
             <DeckContainer>
-              <SectionLabel>Deck</SectionLabel>
+              <SectionLabel>Mazzo</SectionLabel>
               <DeckStack>
                 {/* Stacked back cards */}
                 <div style={{ position: 'absolute', top: '-4px', left: '-4px', transform: 'translateZ(0)' }}>

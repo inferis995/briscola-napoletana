@@ -235,15 +235,15 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
     <Overlay onClick={onClose}>
       <Dialog onClick={e => e.stopPropagation()}>
         <Header>
-          <Title>📖 HOW TO PLAY</Title>
+          <Title>📖 COME SI GIOCA</Title>
           <CloseButton onClick={onClose}>✕</CloseButton>
         </Header>
         <Content>
           <Section>
-            <SectionTitle>Overview</SectionTitle>
-            Briscola is a classic Italian trick-taking card game. Win by earning the most
-            points from captured cards. The game uses a <Highlight>40-card Italian deck</Highlight> with
-            four suits:
+            <SectionTitle>Panoramica</SectionTitle>
+            Briscola è un classico gioco di carte italiano. Vinci accumulando il maggior numero
+            di punti dalle carte catturate. Si usa un <Highlight>mazzo da 40 carte</Highlight> con
+            quattro semi:
             <CardShowcase>
               <div>
                 <CardImage src="/assets/cards/denari/denari_1.jpg" alt="Coins" />
@@ -265,11 +265,11 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
           </Section>
 
           <Section>
-            <SectionTitle>Setup</SectionTitle>
-            Each player is dealt <Highlight>3 cards</Highlight>. One card is placed face-up to
-            determine the <Highlight>trump suit (Briscola)</Highlight>. The remaining cards form the draw pile.
+            <SectionTitle>Preparazione</SectionTitle>
+            Ogni giocatore riceve <Highlight>3 carte</Highlight>. Una carta viene scoperta per
+            determinare il <Highlight>seme di briscola</Highlight>. Le carte rimanenti formano il mazzo di pesca.
             <div style={{ marginTop: '10px', fontSize: '12px', color: DESIGN.colors.text.tertiary }}>
-              Example hand (3 cards):
+              Esempio di mano (3 carte):
             </div>
             <CardShowcase>
               <div>
@@ -285,25 +285,25 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
           </Section>
 
           <Section>
-            <SectionTitle>Gameplay</SectionTitle>
+            <SectionTitle>Gioco</SectionTitle>
             <List>
-              <li>Players take turns playing one card each.</li>
-              <li>The first player in each round can play any card.</li>
-              <li>Other players can also play any card — there is <Highlight>no obligation to follow suit</Highlight>.</li>
-              <li>The round winner collects all played cards and leads the next round.</li>
-              <li>After each round, players draw from the deck to refill to 3 cards.</li>
+              <li>I giocatori giocano una carta ciascuno a turno.</li>
+              <li>Il primo giocatore di ogni turno può giocare qualsiasi carta.</li>
+              <li>Gli altri possono giocare qualsiasi carta — <Highlight>non c'è obbligo di rispondere al seme</Highlight>.</li>
+              <li>Il vincitore del turno prende tutte le carte giocate e guida il prossimo turno.</li>
+              <li>Dopo ogni turno, i giocatori pescano dal mazzo per tornare a 3 carte.</li>
             </List>
           </Section>
 
           <Section>
-            <SectionTitle>Who Wins a Round?</SectionTitle>
+            <SectionTitle>Chi vince il turno?</SectionTitle>
             <List>
-              <li>A <Highlight>trump card</Highlight> beats any non-trump card.</li>
-              <li>If multiple trumps are played, the highest-value trump wins.</li>
-              <li>If no trumps are played, the highest card of the <Highlight>leading suit</Highlight> (first card played) wins.</li>
+              <li>Una <Highlight>carta di briscola</Highlight> batte qualsiasi carta non di briscola.</li>
+              <li>Se vengono giocate più briscole, vince quella di valore più alto.</li>
+              <li>Se non ci sono briscole, vince la carta più alta del <Highlight>seme di apertura</Highlight> (la prima carta giocata).</li>
             </List>
             <div style={{ marginTop: '10px', fontSize: '12px', color: DESIGN.colors.text.tertiary }}>
-              Card order (highest to lowest):
+              Ordine carte (dalla più alta alla più bassa):
             </div>
             <CardShowcase>
               <div>
@@ -330,14 +330,14 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
           </Section>
 
           <Section>
-            <SectionTitle>Trump Swap</SectionTitle>
-            If you hold a <Highlight>low trump card</Highlight> (value 2–7) and the face-up trump
-            is a high card (Re, Cavallo, Fante, Asso o Tre), you can swap them before playing.
+            <SectionTitle>Scambio Briscola</SectionTitle>
+            Se hai in mano una <Highlight>briscola bassa</Highlight> (valore 2–7) e la briscola scoperta
+            è una carta alta (Re, Cavallo, Fante, Asso o Tre), puoi scambiarla prima di giocare.
           </Section>
 
           <Section>
-            <SectionTitle>Card Points</SectionTitle>
-            Only certain cards score points. Here's what each card is worth:
+            <SectionTitle>Punteggi</SectionTitle>
+            Solo alcune carte danno punti. Ecco quanto vale ogni carta:
             <CardRow>
               <CardImageSmall src="/assets/cards/denari/denari_1.jpg" alt="Asso Denari" />
               <CardImageSmall src="/assets/cards/coppe/coppe_1.jpg" alt="Asso Coppe" />

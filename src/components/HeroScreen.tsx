@@ -42,22 +42,22 @@ const GAME_MODE_OPTIONS = [
   {
     mode: GameMode.ONE_ON_ONE,
     label: '1 v 1',
-    description: 'Head-to-head standoff duel',
-    players: '2 players',
+    description: 'Sfida testa a testa',
+    players: '2 giocatori',
     icon: '⚔️',
   },
   {
     mode: GameMode.THREE_FOR_ALL,
-    label: '3 for All',
-    description: 'All players against each other',
-    players: '3 players',
+    label: '3 per Tutti',
+    description: 'Tutti contro tutti',
+    players: '3 giocatori',
     icon: '👑',
   },
     {
     mode: GameMode.TWO_VS_TWO,
     label: '2 v 2',
-    description: 'Team-based tactical battle',
-    players: '4 players',
+    description: 'Battaglia a squadre',
+    players: '4 giocatori',
     icon: '🤝',
   },
 ];
@@ -517,10 +517,10 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
       <Divider />
 
       <FormSection onKeyDown={handleKeyDown}>
-        <InputLabel>Your Name</InputLabel>
+        <InputLabel>Il tuo nome</InputLabel>
         <Input
           type="text"
-          placeholder="Enter your name..."
+          placeholder="Inserisci il tuo nome..."
           value={username}
           onChange={e => setUsername(e.target.value)}
           maxLength={20}
@@ -528,7 +528,7 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
           spellCheck={false}
         />
 
-        <InputLabel>Avatar Emoji</InputLabel>
+        <InputLabel>Scegli la tua emoji</InputLabel>
         <EmojiGrid>
           {AVATAR_EMOJIS.map(emoji => (
             <EmojiButton
@@ -543,7 +543,7 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
 
         {showModeSelect ? (
           <>
-            <InputLabel>Select Game Mode</InputLabel>
+            <InputLabel>Scegli la modalità</InputLabel>
             <ModeGrid>
               {GAME_MODE_OPTIONS.map(opt => (
                 <ModeCard key={opt.mode} onClick={() => handleModeSelect(opt.mode)}>
@@ -558,21 +558,21 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
               onClick={() => setShowModeSelect(false)}
               style={{ width: '100%' }}
             >
-              BACK
+              INDIETRO
             </SecondaryButton>
           </>
         ) : !showJoin ? (
           <ButtonRow>
             <PrimaryButton onClick={handleCreate} disabled={!isValid}>
-              CREATE GAME
+              CREA PARTITA
             </PrimaryButton>
             <SecondaryButton onClick={() => setShowJoin(true)}>
-              JOIN GAME
+              PARTECIPA
             </SecondaryButton>
           </ButtonRow>
         ) : (
           <>
-            <InputLabel>Room Code</InputLabel>
+            <InputLabel>Codice stanza</InputLabel>
             <JoinSection>
               <RoomCodeInput
                 type="text"
@@ -589,21 +589,21 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
                 disabled={!isJoinValid}
                 style={{ flex: '0 0 auto', width: '100px' }}
               >
-                JOIN
+                ENTRA
               </PrimaryButton>
             </JoinSection>
             <SecondaryButton
               onClick={() => { setShowJoin(false); setRoomCode(''); }}
               style={{ width: '100%' }}
             >
-              BACK
+              INDIETRO
             </SecondaryButton>
           </>
         )}
       </FormSection>
 
       <RulesButton onClick={() => setShowRules(true)} style={{ marginTop: '16px' }}>
-        <RulesIcon /> HOW TO PLAY
+        <RulesIcon /> COME SI GIOCA
       </RulesButton>
 
       {showRules && <RulesPopup onClose={() => setShowRules(false)} />}

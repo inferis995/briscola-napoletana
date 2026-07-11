@@ -625,24 +625,24 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
       <GameContainer>
         <GameOverOverlay>
           <GameOverDialog>
-            <GameOverTitle>GAME OVER</GameOverTitle>
+            <GameOverTitle>PARTITA FINITA</GameOverTitle>
             {isTeamMode ? (
               <>
                 <WinnerInfo>
                   {isTeamDraw ? (
                     <>
-                      <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>IT'S A DRAW!</WinnerName>
+                      <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>PAREGGIO!</WinnerName>
                       <WinnerScore>
-                        Both teams scored {gameState.teamScores?.['1'] || 0} points
+                        Entrambi i team hanno {gameState.teamScores?.['1'] || 0} punti
                       </WinnerScore>
                     </>
                   ) : (
                     <>
                       <WinnerName style={{ color: TEAM_COLORS[gameState.winnerTeam!] }}>
-                        TEAM {gameState.winnerTeam} WINS!
+                        TEAM {gameState.winnerTeam} VINCE!
                       </WinnerName>
                       <WinnerScore>
-                        {gameState.teamScores?.[String(gameState.winnerTeam)] || 0} points
+                        {gameState.teamScores?.[String(gameState.winnerTeam)] || 0} punti
                       </WinnerScore>
                     </>
                   )}
@@ -674,9 +674,9 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
             ) : isDraw ? (
               <>
                 <WinnerInfo>
-                  <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>IT'S A DRAW!</WinnerName>
+                  <WinnerName style={{ color: DESIGN.colors.accents.cyan }}>PAREGGIO!</WinnerName>
                   <WinnerScore>
-                    {Math.max(...Object.values(scores))} points each
+                    {Math.max(...Object.values(scores))} punti ciascuno
                   </WinnerScore>
                 </WinnerInfo>
                 <ScoresGrid>
@@ -700,7 +700,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
               <>
                 <WinnerInfo>
                   <WinnerName>{getPlayerName(winnerPlayer!)}</WinnerName>
-                  <WinnerScore>{scores[winner!]} points</WinnerScore>
+                  <WinnerScore>{scores[winner!]} punti</WinnerScore>
                 </WinnerInfo>
                 <ScoresGrid>
                   {[...players]
@@ -717,10 +717,10 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
               </>
             )}
             {isHostPlayer && onPlayAgain && (
-              <PlayAgainButton onClick={onPlayAgain}>PLAY AGAIN</PlayAgainButton>
+              <PlayAgainButton onClick={onPlayAgain}>RIGIOCA</PlayAgainButton>
             )}
             {!isHostPlayer && (
-              <div style={{ marginTop: DESIGN.spacing.md, fontSize: '12px', color: DESIGN.colors.text.tertiary }}>Waiting for host to start a new game...</div>
+              <div style={{ marginTop: DESIGN.spacing.md, fontSize: '12px', color: DESIGN.colors.text.tertiary }}>In attesa che l'host inizi una nuova partita...</div>
             )}
             <MatchHistoryButton roundHistory={gameState.roundHistory} players={players} />
           </GameOverDialog>
@@ -744,11 +744,11 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
             BRISCOLA NAPOLETANA<GameVersionMobile>v{packageJson.version}</GameVersionMobile>
           </GameTitleMobile>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
-            <RoundBadge>Round {gameState.roundNumber}</RoundBadge>
-            <RulesIconButton onClick={() => setShowRules(true)} title="How to Play">
+            <RoundBadge>Turno {gameState.roundNumber}</RoundBadge>
+            <RulesIconButton onClick={() => setShowRules(true)} title="Come si gioca">
               <RulesIcon />
             </RulesIconButton>
-            <RulesIconButton onClick={() => setShowQuickChat(true)} title="Quick Chat">
+            <RulesIconButton onClick={() => setShowQuickChat(true)} title="Chat veloce">
               <QuickChatIcon />
             </RulesIconButton>
             {isOnline
@@ -798,8 +798,8 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
                     {isYou && <YouBadge> YOU</YouBadge>}
                   </PlayerPillName>
                   <PlayerPillStats>
-                    <span>H:<PlayerPillStatValue>{gameState.playerHands[player.id]?.length || 0}</PlayerPillStatValue></span>
-                    <span>W:<PlayerPillStatValue>{gameState.playerStacks[player.id]?.length || 0}</PlayerPillStatValue></span>
+                    <span>M:<PlayerPillStatValue>{gameState.playerHands[player.id]?.length || 0}</PlayerPillStatValue></span>
+                    <span>P:<PlayerPillStatValue>{gameState.playerStacks[player.id]?.length || 0}</PlayerPillStatValue></span>
                     {isTeamMode && teams[player.id] && (
                       <MobileTeamIndicator team={teams[player.id]}>T{teams[player.id]}</MobileTeamIndicator>
                     )}
@@ -844,7 +844,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
       {/* Bottom Hand Area */}
       <BottomArea>
         <HandLabel>
-          {isCurrentPlayerTurn ? 'Your Turn — Tap to Play' : 'Waiting...'}
+          {isCurrentPlayerTurn ? 'Tocca a te — Scegli una carta' : 'In attesa...'}
         </HandLabel>
         <HandRow>
           {playerHand.map((card, idx) => {

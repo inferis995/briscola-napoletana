@@ -169,12 +169,12 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   const handleCardPlay = useCallback((card: Card) => {
     if (!currentPlayer || !gameState) return;
     if (gameState.phase !== 'playing') {
-      showNotification("Wait for the round to resolve", "WARNING" as any);
+      showNotification("Aspetta la fine del turno", "WARNING" as any);
       return;
     }
     const playerIndex = players.findIndex(p => p.id === currentPlayer.id);
     if (playerIndex !== gameState.currentTurnPlayerIndex) {
-      showNotification("It's not your turn!", "WARNING" as any);
+      showNotification("Non è il tuo turno!", "WARNING" as any);
       return;
     }
     RPC.call('playCard', { cardId: card.id }, RPC.Mode.HOST);
@@ -199,7 +199,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   const handleStartGame = useCallback(() => {
     if (!amHost) return;
     if (players.length < (modeConfig?.minPlayers ?? 2)) {
-      showNotification("Need more players to start!", "WARNING" as any);
+      showNotification("Servono più giocatori per iniziare!", "WARNING" as any);
       return;
     }
     try {
@@ -209,7 +209,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       setGameState(initialState, true);
     } catch (error) {
       console.error("Failed to start game:", error);
-      showNotification("Failed to start game", "ERROR" as any);
+      showNotification("Impossibile avviare la partita", "ERROR" as any);
     }
   }, [amHost, players, setGameState, showNotification, activeMode, modeConfig]);
 
@@ -217,7 +217,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   useEffect(() => {
     const unsubscribe = onPlayerJoin((playerState: any) => {
       playerState.onQuit(() => {
-        showNotification("Player left the game!", "ERROR" as any);
+        showNotification("Un giocatore ha lasciato la partita!", "ERROR" as any);
       });
     });
     return unsubscribe;
@@ -280,21 +280,21 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         <LobbyContainer>
           <LobbyHeader>
             <LobbyTitle>BRISCOLA NAPOLETANA</LobbyTitle>
-            <LobbySubtitle>{activeMode === GameMode.ONE_ON_ONE ? '1 v 1' : activeMode === GameMode.TWO_VS_TWO ? '2 v 2' : activeMode === GameMode.THREE_FOR_ALL ? '3 for All' : 'Loading...'} • Waiting Room</LobbySubtitle>
+            <LobbySubtitle>{activeMode === GameMode.ONE_ON_ONE ? '1 v 1' : activeMode === GameMode.TWO_VS_TWO ? '2 v 2' : activeMode === GameMode.THREE_FOR_ALL ? '3 per Tutti' : 'Caricamento...'} • Sala d'attesa</LobbySubtitle>
           </LobbyHeader>
 
           <RoomCodeCard>
-            <RoomCodeLabel>ROOM CODE</RoomCodeLabel>
+            <RoomCodeLabel>CODICE STANZA</RoomCodeLabel>
             <RoomCodeValue>{roomCode || '----'}</RoomCodeValue>
             <ShareButtonRow>
               <ShareButton onClick={handleCopyCode}>
-                {copiedCode ? 'COPIED!' : 'COPY CODE'}
+                {copiedCode ? 'COPIATO!' : 'COPIA CODICE'}
               </ShareButton>
               <ShareButton onClick={handleCopyLink}>
-                {copiedLink ? 'COPIED!' : 'COPY LINK'}
+                {copiedLink ? 'COPIATO!' : 'COPIA LINK'}
               </ShareButton>
               <ShareButton onClick={() => setShowQR(!showQR)}>
-                {showQR ? 'HIDE QR' : 'SHOW QR'}
+                {showQR ? 'NASCONDI QR' : 'MOSTRA QR'}
               </ShareButton>
             </ShareButtonRow>
             {showQR && roomCode && (
@@ -311,7 +311,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
           </RoomCodeCard>
 
           <PlayersSection>
-            <PlayersHeader>Players ({players.length}/{maxPlayers})</PlayersHeader>
+            <PlayersHeader>Giocatori ({players.length}/{maxPlayers})</PlayersHeader>
             {players.map((player) => {
               const name = getPlayerName(player);
               const emoji = getPlayerEmoji(player);
@@ -348,9 +348,9 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
                       </TeamToggle>
                     ) : (
                       playerTeam ? (
-                        <TeamBadge team={playerTeam}>TEAM {playerTeam}</TeamBadge>
+                        <TeamBadge team={playerTeam}>SQUADRA {playerTeam}</TeamBadge>
                       ) : (
-                        <TeamBadge team={0}>NO TEAM</TeamBadge>
+                        <TeamBadge team={0}>NESSUN TEAM</TeamBadge>
                       )
                     )
                   )}
@@ -362,7 +362,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
               <PlayerRow key={`empty-${i}`} style={{ opacity: 0.4 }}>
                 <WaitingDot>?</WaitingDot>
                 <PlayerNameText style={{ color: DESIGN.colors.text.tertiary }}>
-                  Waiting for player...
+                  In attesa di giocatori...
                 </PlayerNameText>
               </PlayerRow>
             ))}
@@ -371,16 +371,16 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
           {amHost ? (
             <StartButton onClick={handleStartGame} disabled={!canStart}>
               {canStart
-                ? 'START GAME'
+                ? 'AVVIA PARTITA'
                 : players.length < (modeConfig?.minPlayers ?? 2)
-                  ? `NEED ${needed} MORE PLAYER${needed !== 1 ? 'S' : ''}`
-                  : 'TEAMS MUST BE 2v2'
+                  ? `MANCANO ${needed} GIOCATORI`
+                  : 'I TEAM DEVONO ESSERE 2v2'
               }
             </StartButton>
           ) : (
             <WaitingForHostText>
               <PulsingDot />
-              Waiting for host to start...
+              In attesa che l'host inizi...
             </WaitingForHostText>
           )}
         </LobbyContainer>
@@ -943,7 +943,7 @@ export default function Home() {
     setUsername(name);
     setAvatarEmoji(emoji);
     if (mode) setGameMode(mode);
-    setConnectingText(roomCode ? 'Joining game' : 'Creating game');
+    setConnectingText(roomCode ? 'Entrando in partita' : 'Creando partita');
     setPhase('connecting');
 
     // Determine max players from mode (host knows)
@@ -965,11 +965,11 @@ export default function Home() {
     } catch (error: any) {
       console.error('insertCoin failed:', error);
       if (error?.message === 'ROOM_LIMIT_EXCEEDED') {
-        setConnectError('Room is full! Try a different code.');
+        setConnectError('Stanza piena! Prova un altro codice.');
       } else {
         setConnectError(roomCode
-          ? 'Failed to join game. Check your room code and try again.'
-          : 'Failed to create game. Please try again.'
+          ? 'Impossibile partecipare. Controlla il codice e riprova.'
+          : 'Impossibile creare la partita. Riprova.'
         );
       }
       setPhase('hero');
@@ -1025,14 +1025,14 @@ export default function Home() {
         <GlobalStyle />
         <QuickJoinOverlay>
           <QuickJoinCard>
-            <QuickJoinTitle>Join Game</QuickJoinTitle>
-            <QuickJoinSubtitle>Room: {pendingRefcode}</QuickJoinSubtitle>
-            
+            <QuickJoinTitle>Partecipa</QuickJoinTitle>
+            <QuickJoinSubtitle>Stanza: {pendingRefcode}</QuickJoinSubtitle>
+
             <QuickJoinField>
-              <QuickJoinLabel>Your Name</QuickJoinLabel>
+              <QuickJoinLabel>Il tuo nome</QuickJoinLabel>
               <QuickJoinInput
                 type="text"
-                placeholder="Enter your name"
+                placeholder="Inserisci il tuo nome"
                 value={quickJoinName}
                 onChange={(e) => setQuickJoinName(e.target.value.slice(0, 12))}
                 maxLength={12}
@@ -1041,7 +1041,7 @@ export default function Home() {
             </QuickJoinField>
 
             <QuickJoinField>
-              <QuickJoinLabel>Pick an Emoji</QuickJoinLabel>
+              <QuickJoinLabel>Scegli un'emoji</QuickJoinLabel>
               <QuickJoinEmojiGrid>
                 {AVATAR_EMOJIS.map((emoji) => (
                   <QuickJoinEmojiBtn
@@ -1057,10 +1057,10 @@ export default function Home() {
 
             <QuickJoinActions>
               <QuickJoinCancelBtn onClick={() => setPendingRefcode(null)}>
-                Cancel
+                Annulla
               </QuickJoinCancelBtn>
               <QuickJoinSubmitBtn onClick={handleQuickJoin} disabled={!canJoin}>
-                Join Game
+                Partecipa
               </QuickJoinSubmitBtn>
             </QuickJoinActions>
           </QuickJoinCard>
@@ -1091,7 +1091,7 @@ export default function Home() {
       <>
         <GlobalStyle />
         <ConnectingWrapper>
-          <CardBackImage src="/assets/cards/back.jpg" alt="Loading" />
+          <CardBackImage src="/assets/cards/back.jpg" alt="Caricamento" />
           <ConnectingTextRow>
             {connectingText}
             <AnimDot delay={0}>.</AnimDot>

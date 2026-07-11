@@ -7,12 +7,12 @@ import { PlayerState } from 'playroomkit';
 
 // ===== QUICK MESSAGES =====
 export const QUICK_MESSAGES = [
-  { emoji: '👋', text: 'Hello!' },
-  { emoji: '👍', text: 'Nice play!' },
+  { emoji: '👋', text: 'Ciao!' },
+  { emoji: '👍', text: 'Bella giocata!' },
   { emoji: '😲', text: 'Wow!' },
-  { emoji: '🔥', text: "Let's go!" },
-  { emoji: '😅', text: 'Oops...' },
-  { emoji: '🤝', text: 'Good game!' },
+  { emoji: '🔥', text: 'Forza!' },
+  { emoji: '😅', text: 'Ops...' },
+  { emoji: '🤝', text: 'Bella partita!' },
 ];
 
 // ===== TYPES =====
@@ -273,7 +273,7 @@ export const QuickChatPopup: React.FC<QuickChatPopupProps> = ({ onClose, onSend 
     <Overlay onClick={onClose}>
       <Dialog onClick={e => e.stopPropagation()}>
         <Header>
-          <Title>💬 QUICK CHAT</Title>
+          <Title>💬 CHAT VELOCE</Title>
           <CloseButton onClick={onClose}>✕</CloseButton>
         </Header>
         <MessagesGrid>
@@ -288,12 +288,12 @@ export const QuickChatPopup: React.FC<QuickChatPopupProps> = ({ onClose, onSend 
           <CustomInput
             value={customMsg}
             onChange={e => setCustomMsg(e.target.value.slice(0, MAX_LENGTH))}
-            placeholder="Type a message..."
+            placeholder="Scrivi un messaggio..."
             maxLength={MAX_LENGTH}
             autoFocus
           />
           <SendButton type="submit" disabled={!customMsg.trim()}>
-            Send
+            Invia
           </SendButton>
         </CustomInputRow>
       </Dialog>
@@ -335,7 +335,7 @@ export const QuickChatBubble: React.FC<QuickChatBubbleProps> = ({ message, playe
   if (!visible) return null;
 
   const sender = players.find(p => p.id === message.senderId);
-  const senderName = message.senderId === currentPlayerId ? 'You' : (sender ? getPlayerName(sender) : 'Player');
+  const senderName = message.senderId === currentPlayerId ? 'Tu' : (sender ? getPlayerName(sender) : 'Giocatore');
   const senderEmoji = sender ? getPlayerEmoji(sender) : '😎';
 
   return (

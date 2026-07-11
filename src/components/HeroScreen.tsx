@@ -97,15 +97,15 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: safe center;
+  justify-content: flex-start;
   min-height: 100vh;
   min-height: 100dvh;
   width: 100vw;
   background: ${DESIGN.colors.bg.secondary};
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 20px env(safe-area-inset-bottom, 20px);
-  gap: clamp(12px, 2.5vh, 24px);
+  padding: 12px 16px max(20px, env(safe-area-inset-bottom, 20px));
+  gap: clamp(8px, 2vh, 20px);
   -webkit-overflow-scrolling: touch;
 `;
 
@@ -115,11 +115,11 @@ const TitleSection = styled.div`
 `;
 
 const Title = styled.h1`
-  font-size: clamp(42px, 9vw, 76px);
+  font-size: clamp(28px, 7vw, 64px);
   font-weight: 800;
   color: ${DESIGN.colors.text.primary};
   margin: 0;
-  letter-spacing: 8px;
+  letter-spacing: 4px;
   line-height: 1;
   background: linear-gradient(
     90deg,
@@ -137,10 +137,10 @@ const Title = styled.h1`
 `;
 
 const Subtitle = styled.p`
-  font-size: clamp(11px, 1.8vw, 15px);
+  font-size: clamp(10px, 1.6vw, 13px);
   color: ${DESIGN.colors.text.secondary};
-  margin: 8px 0 0;
-  letter-spacing: 2px;
+  margin: 4px 0 0;
+  letter-spacing: 1.5px;
   text-transform: uppercase;
 `;
 
@@ -157,8 +157,8 @@ const VersionBadge = styled.span`
 
 const CardFanContainer = styled.div`
   position: relative;
-  width: clamp(220px, 55vw, 380px);
-  height: clamp(100px, 18vh, 200px);
+  width: clamp(180px, 50vw, 340px);
+  height: clamp(80px, 15vh, 170px);
   display: flex;
   align-items: flex-end;
   justify-content: center;
@@ -181,7 +181,7 @@ const CardFanContainer = styled.div`
 const FanCard = styled.div`
   position: absolute;
   bottom: 0;
-  width: clamp(55px, 11vw, 100px);
+  width: clamp(45px, 10vw, 85px);
   aspect-ratio: 0.62;
   transform-origin: bottom center;
   border: 2px solid #c8b890;
@@ -218,9 +218,9 @@ const FormSection = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
-  max-width: 360px;
+  max-width: 340px;
   animation: ${contentFadeIn} 600ms ease-out 400ms both;
   flex-shrink: 0;
 `;
@@ -257,15 +257,15 @@ const Input = styled.input`
 
 const EmojiGrid = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 6px;
   flex-wrap: wrap;
   justify-content: center;
 `;
 
 const EmojiButton = styled.button<{ isSelected: boolean }>`
-  width: 36px;
-  height: 36px;
-  border-radius: 10px;
+  width: 32px;
+  height: 32px;
+  border-radius: 8px;
   background: ${p => p.isSelected ? `${DESIGN.colors.accents.green}30` : 'transparent'};
   border: 2px solid ${p => p.isSelected ? DESIGN.colors.accents.green : 'transparent'};
   cursor: pointer;
@@ -285,13 +285,13 @@ const EmojiButton = styled.button<{ isSelected: boolean }>`
 
 const ButtonRow = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
 `;
 
 const PrimaryButton = styled.button`
   flex: 1;
-  padding: 12px 16px;
+  padding: 10px 12px;
   border-radius: ${DESIGN.radius.buttons};
   border: none;
   font-size: 14px;
@@ -360,9 +360,14 @@ const ErrorBanner = styled.div`
 
 const ModeGrid = styled.div`
   display: flex;
-  gap: 12px;
+  gap: 8px;
   width: 100%;
   animation: ${contentFadeIn} 200ms ease-out;
+
+  @media (max-width: 480px) {
+    flex-direction: column;
+    gap: 6px;
+  }
 `;
 
 const ModeCard = styled.button`
@@ -371,7 +376,7 @@ const ModeCard = styled.button`
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  padding: 16px 10px;
+  padding: 12px 8px;
   border-radius: ${DESIGN.radius.containers};
   border: 1.5px solid ${DESIGN.colors.surfaces.elevated};
   background: ${DESIGN.colors.surfaces.containers};

@@ -794,12 +794,12 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
               {isActive && (
                 <PlayerPillInfo>
                   <PlayerPillName>
-                    {isYou ? 'You' : getPlayerName(player)}
-                    {isYou && <YouBadge> YOU</YouBadge>}
+                    {isYou ? 'Tu' : getPlayerName(player)}
+                    {isYou && <YouBadge> TU</YouBadge>}
                   </PlayerPillName>
                   <PlayerPillStats>
-                    <span>M:<PlayerPillStatValue>{gameState.playerHands[player.id]?.length || 0}</PlayerPillStatValue></span>
-                    <span>P:<PlayerPillStatValue>{gameState.playerStacks[player.id]?.length || 0}</PlayerPillStatValue></span>
+                    <span>Mano <PlayerPillStatValue>{gameState.playerHands[player.id]?.length || 0}</PlayerPillStatValue></span>
+                    <span>Prese <PlayerPillStatValue>{gameState.playerStacks[player.id]?.length || 0}</PlayerPillStatValue></span>
                     {isTeamMode && teams[player.id] && (
                       <MobileTeamIndicator team={teams[player.id]}>T{teams[player.id]}</MobileTeamIndicator>
                     )}

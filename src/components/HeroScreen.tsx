@@ -97,16 +97,15 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  justify-content: flex-start;
-  min-height: 100vh;
-  min-height: 100dvh;
+  height: 100vh;
+  height: 100dvh;
   width: 100vw;
   background: ${DESIGN.colors.bg.secondary};
   overflow-y: auto;
   overflow-x: hidden;
+  -webkit-overflow-scrolling: touch;
   padding: 12px 16px max(20px, env(safe-area-inset-bottom, 20px));
   gap: clamp(8px, 2vh, 20px);
-  -webkit-overflow-scrolling: touch;
 `;
 
 const TitleSection = styled.div`

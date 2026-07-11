@@ -436,13 +436,13 @@ const GlobalStyle = createGlobalStyle`
     color: #f5f0e8;
     font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     overflow: hidden;
+    height: 100%;
     user-select: none;
     -webkit-text-size-adjust: 100%;
   }
 
   html {
-    height: 100vh;
-    height: 100dvh;
+    height: 100%;
     width: 100vw;
     overflow: hidden;
   }

@@ -31,11 +31,20 @@ const GameContainer = styled.div`
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: ${DESIGN.colors.bg.primary};
+  background: radial-gradient(ellipse at center, #0f1f0f 0%, #0a120a 100%);
   color: ${DESIGN.colors.text.primary};
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
   position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='0.5' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
 `;
 
 // Top Bar - Game Info + Trump/Deck
@@ -44,8 +53,9 @@ const TopBar = styled.div`
   align-items: center;
   justify-content: space-between;
   padding: ${DESIGN.spacing.xs} ${DESIGN.spacing.sm};
-  background: ${DESIGN.colors.bg.secondary};
-  border-bottom: 1px solid ${DESIGN.colors.bg.tertiary};
+  background: rgba(10,18,10,0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(212,160,23,0.12);
   flex-shrink: 0;
   min-height: 48px;
 `;
@@ -126,8 +136,9 @@ const PlayersRow = styled.div`
   display: flex;
   gap: 6px;
   padding: 6px ${DESIGN.spacing.sm};
-  background: ${DESIGN.colors.bg.secondary};
-  border-bottom: 1px solid ${DESIGN.colors.bg.tertiary};
+  background: rgba(13,26,13,0.85);
+  backdrop-filter: blur(8px);
+  border-bottom: 1px solid rgba(212,160,23,0.1);
   flex-shrink: 0;
   justify-content: center;
   align-items: center;
@@ -294,8 +305,9 @@ const PlaySlotLabel = styled.div`
 // Bottom Hand Area
 const BottomArea = styled.div`
   flex-shrink: 0;
-  background: ${DESIGN.colors.bg.secondary};
-  border-top: 1px solid ${DESIGN.colors.bg.tertiary};
+  background: rgba(13,26,13,0.88);
+  backdrop-filter: blur(8px);
+  border-top: 1px solid rgba(212,160,23,0.12);
   padding: ${DESIGN.spacing.xs} ${DESIGN.spacing.sm} ${DESIGN.spacing.md};
 `;
 
@@ -375,7 +387,7 @@ const SwapNotificationBanner = styled.div`
   left: 50%;
   transform: translateX(-50%);
   background: ${DESIGN.colors.surfaces.elevated};
-  border: 1px solid ${DESIGN.colors.accents.green};
+  border: 1px solid #d4a017;
   border-radius: ${DESIGN.radius.buttons};
   padding: 8px 18px;
   font-size: 12px;
@@ -410,13 +422,14 @@ const GameOverOverlay = styled.div`
 `;
 
 const GameOverDialog = styled.div`
-  background: ${DESIGN.colors.surfaces.containers};
+  background: rgba(19,33,19,0.96);
+  backdrop-filter: blur(12px);
   border-radius: ${DESIGN.radius.containers};
   padding: ${DESIGN.spacing.lg};
   text-align: center;
   width: 100%;
   max-width: 400px;
-  border: 1px solid ${DESIGN.colors.bg.tertiary};
+  border: 1px solid rgba(212,160,23,0.3);
 `;
 
 const GameOverTitle = styled.h2`
@@ -431,9 +444,9 @@ const WinnerInfo = styled.div`
 `;
 
 const WinnerName = styled.div`
-  font-size: ${DESIGN.typography.subtitle.size};
+  font-size: 26px;
   font-weight: 600;
-  color: ${DESIGN.colors.accents.green};
+  color: #d4a017;
   margin-bottom: ${DESIGN.spacing.xs};
 `;
 
@@ -475,8 +488,8 @@ const ScoreRow = styled.div<{ isWinner?: boolean }>`
 const PlayAgainButton = styled.button`
   margin-top: ${DESIGN.spacing.md};
   padding: ${DESIGN.spacing.sm} ${DESIGN.spacing.lg};
-  background: ${DESIGN.colors.accents.green};
-  color: ${DESIGN.colors.bg.primary};
+  background: #d4a017;
+  color: #0a120a;
   border: none;
   border-radius: ${DESIGN.radius.buttons};
   font-size: 16px;

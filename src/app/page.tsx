@@ -473,8 +473,7 @@ const ConnectingWrapper = styled.div`
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  height: 100vh;
-  height: 100dvh;
+  height: 100svh;
   width: 100vw;
   background: ${DESIGN.colors.bg.secondary};
   gap: 32px;
@@ -516,14 +515,13 @@ const LobbyWrapper = styled.div`
   display: flex;
   align-items: safe center;
   justify-content: center;
-  min-height: 100vh;
-  min-height: 100dvh;
+  min-height: 100svh;
   width: 100vw;
   background: ${DESIGN.colors.bg.secondary};
   overflow-y: auto;
   overflow-x: hidden;
-  padding: 20px 20px env(safe-area-inset-bottom, 20px);
   -webkit-overflow-scrolling: touch;
+  padding: 20px 20px max(20px, env(safe-area-inset-bottom, 20px));
 `;
 
 const LobbyContainer = styled.div`
@@ -564,7 +562,7 @@ const RoomCodeCard = styled.div`
   align-items: center;
   gap: 8px;
   background: ${DESIGN.colors.surfaces.containers};
-  border: 1px solid ${DESIGN.colors.surfaces.elevated};
+  border: 1px solid rgba(212,160,23,0.25);
   border-radius: ${DESIGN.radius.containers};
   padding: 20px 32px;
   width: 100%;
@@ -582,7 +580,7 @@ const RoomCodeValue = styled.span`
   font-size: clamp(36px, 8vw, 52px);
   font-weight: 800;
   letter-spacing: 12px;
-  color: ${DESIGN.colors.accents.green};
+  color: #d4a017;
   font-family: 'SF Mono', 'Fira Code', monospace;
   line-height: 1;
 `;
@@ -596,19 +594,20 @@ const ShareButtonRow = styled.div`
 const ShareButton = styled.button`
   flex: 1;
   background: ${DESIGN.colors.surfaces.elevated};
-  border: 1px solid ${DESIGN.colors.bg.tertiary};
+  border: 1px solid ${DESIGN.colors.surfaces.elevated};
   border-radius: 8px;
   padding: 8px 12px;
   font-size: 11px;
   font-weight: 700;
   letter-spacing: 1px;
-  color: ${DESIGN.colors.text.secondary};
+  color: #d4a017;
   cursor: pointer;
   transition: all 150ms;
 
   &:hover {
-    background: ${DESIGN.colors.bg.tertiary};
-    color: ${DESIGN.colors.text.primary};
+    background: rgba(212,160,23,0.12);
+    border-color: #d4a017;
+    color: #f5e6a3;
   }
 `;
 
@@ -754,10 +753,10 @@ const StartButton = styled.button`
   letter-spacing: 1.5px;
   cursor: pointer;
   transition: all 200ms;
-  background: ${DESIGN.colors.accents.green};
-  color: ${DESIGN.colors.bg.primary};
+  background: #d4a017;
+  color: #0a120a;
 
-  &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px ${DESIGN.colors.accents.green}40; }
+  &:hover:not(:disabled) { transform: translateY(-1px); box-shadow: 0 4px 20px rgba(212,160,23,0.4); }
   &:active:not(:disabled) { transform: translateY(0); }
   &:disabled { opacity: 0.35; cursor: not-allowed; transform: none; }
 `;
@@ -776,7 +775,7 @@ const PulsingDot = styled.div`
   width: 8px;
   height: 8px;
   border-radius: 50%;
-  background: ${DESIGN.colors.accents.green};
+  background: #d4a017;
   animation: ${hostPulse} 1.5s ease-in-out infinite;
 `;
 

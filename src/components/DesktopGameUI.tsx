@@ -29,11 +29,21 @@ const GameContainer = styled.div`
   display: flex;
   width: 100vw;
   height: 100vh;
-  background: ${DESIGN.colors.bg.primary};
+  height: 100dvh;
+  background: radial-gradient(ellipse at center, #0f1f0f 0%, #0a120a 100%);
   color: ${DESIGN.colors.text.primary};
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
   position: relative;
+
+  &::before {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='0.5' fill='%23ffffff' opacity='0.03'/%3E%3C/svg%3E");
+    pointer-events: none;
+    z-index: 0;
+  }
 `;
 
 // Left Sidebar - Opponents
@@ -44,8 +54,10 @@ const LeftSidebar = styled.div`
   flex-direction: column;
   gap: ${DESIGN.spacing.lg};
   overflow-y: auto;
-  background: ${DESIGN.colors.bg.secondary};
-  border-right: 1px solid ${DESIGN.colors.bg.tertiary};
+  background: rgba(10,18,10,0.85);
+  backdrop-filter: blur(8px);
+  border-right: 1px solid rgba(212,160,23,0.12);
+  z-index: 1;
 
   &::-webkit-scrollbar {
     width: 4px;
@@ -62,11 +74,11 @@ const LeftSidebar = styled.div`
 `;
 
 const OpponentCard = styled.div<{ isCurrentPlayer?: boolean; isActive?: boolean; isSwapHighlighted?: boolean }>`
-  background: ${DESIGN.colors.surfaces.containers};
+  background: rgba(19,33,19,0.85);
   border-radius: ${DESIGN.radius.containers};
   padding: ${DESIGN.spacing.md};
   transition: background-color 200ms ease-out, border 200ms ease-out;
-  border: 1px solid ${props => props.isSwapHighlighted ? DESIGN.colors.accents.green : props.isActive ? DESIGN.colors.accents.green : 'transparent'};
+  border: 1px solid ${props => props.isSwapHighlighted ? '#d4a017' : props.isActive ? 'rgba(212,160,23,0.5)' : 'rgba(212,160,23,0.08)'};
   position: relative;
 
   ${props => props.isSwapHighlighted && css`
@@ -74,7 +86,7 @@ const OpponentCard = styled.div<{ isCurrentPlayer?: boolean; isActive?: boolean;
   `}
 
   &:hover {
-    background: ${DESIGN.colors.surfaces.elevated};
+    background: rgba(30,50,32,0.9);
   }
 `;
 
@@ -153,8 +165,9 @@ const CenterArea = styled.div`
   flex-direction: column;
   padding: ${DESIGN.spacing.lg};
   gap: ${DESIGN.spacing.lg};
-  background: radial-gradient(ellipse at center, #0f1f0f 0%, #0a120a 100%);
+  background: transparent;
   position: relative;
+  z-index: 1;
 `;
 
 const GameHeader = styled.div`
@@ -162,7 +175,7 @@ const GameHeader = styled.div`
   justify-content: space-between;
   align-items: center;
   padding-bottom: ${DESIGN.spacing.md};
-  border-bottom: 1px solid ${DESIGN.colors.bg.tertiary};
+  border-bottom: 1px solid rgba(212,160,23,0.15);
 `;
 
 const GameTitle = styled.div`
@@ -302,14 +315,15 @@ const BottomHandDock = styled.div`
   bottom: ${DESIGN.spacing.md};
   left: 50%;
   transform: translate(-50%, 0) scale(1.25);
-  background: ${DESIGN.colors.surfaces.containers};
-  border: 1px solid ${DESIGN.colors.bg.tertiary};
+  background: rgba(19,33,19,0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212,160,23,0.2);
   border-radius: ${DESIGN.radius.containers};
   padding: ${DESIGN.spacing.md};
   display: flex;
   gap: ${DESIGN.spacing.md};
   z-index: 900;
-  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
+  box-shadow: 0 4px 20px rgba(0,0,0,0.4);
   white-space: nowrap;
   width: fit-content;
   transition: transform 200ms ease-out;
@@ -324,8 +338,9 @@ const TopRightDock = styled.div`
   position: absolute;
   top: 0;
   right: 0;
-  background: ${DESIGN.colors.surfaces.containers};
-  border: 1px solid ${DESIGN.colors.bg.tertiary};
+  background: rgba(19,33,19,0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(212,160,23,0.2);
   border-radius: ${DESIGN.radius.containers};
   padding: ${DESIGN.spacing.lg};
   display: flex;
@@ -446,12 +461,13 @@ const GameOverOverlay = styled.div`
 `;
 
 const GameOverDialog = styled.div`
-  background: ${DESIGN.colors.surfaces.containers};
+  background: rgba(19,33,19,0.96);
+  backdrop-filter: blur(12px);
   border-radius: ${DESIGN.radius.containers};
   padding: ${DESIGN.spacing.xl};
   text-align: center;
   max-width: 500px;
-  border: 1px solid ${DESIGN.colors.bg.tertiary};
+  border: 1px solid rgba(212,160,23,0.3);
 `;
 
 const GameOverTitle = styled.h2`
@@ -468,7 +484,7 @@ const WinnerInfo = styled.div`
 const WinnerName = styled.div`
   font-size: ${DESIGN.typography.title.size};
   font-weight: 600;
-  color: ${DESIGN.colors.accents.green};
+  color: #d4a017;
   margin-bottom: ${DESIGN.spacing.sm};
 `;
 
@@ -490,7 +506,7 @@ const ScoreRow = styled.div<{ isWinner?: boolean }>`
   background: ${props =>
     props.isWinner ? DESIGN.colors.surfaces.elevated : DESIGN.colors.surfaces.containers};
   border: 1px solid ${props =>
-    props.isWinner ? DESIGN.colors.accents.green : DESIGN.colors.bg.tertiary};
+    props.isWinner ? '#d4a017' : DESIGN.colors.bg.tertiary};
   border-radius: ${DESIGN.radius.buttons};
 
   div:first-child {
@@ -499,7 +515,7 @@ const ScoreRow = styled.div<{ isWinner?: boolean }>`
   }
 
   div:last-child {
-    color: ${props => (props.isWinner ? DESIGN.colors.accents.green : DESIGN.colors.accents.cyan)};
+    color: ${props => (props.isWinner ? '#d4a017' : DESIGN.colors.accents.cyan)};
     font-weight: 600;
     font-family: 'SF Mono', Monaco, monospace;
   }
@@ -508,8 +524,8 @@ const ScoreRow = styled.div<{ isWinner?: boolean }>`
 const PlayAgainButton = styled.button`
   margin-top: ${DESIGN.spacing.lg};
   padding: ${DESIGN.spacing.md} ${DESIGN.spacing.xl};
-  background: ${DESIGN.colors.accents.green};
-  color: ${DESIGN.colors.bg.primary};
+  background: #d4a017;
+  color: #0a120a;
   border: none;
   border-radius: ${DESIGN.radius.buttons};
   font-size: ${DESIGN.typography.body.size};
@@ -521,7 +537,7 @@ const PlayAgainButton = styled.button`
 
   &:hover {
     transform: translateY(-2px);
-    box-shadow: 0 4px 16px rgba(0, 255, 136, 0.3);
+    box-shadow: 0 4px 16px rgba(212,160,23,0.3);
   }
 
   &:active {

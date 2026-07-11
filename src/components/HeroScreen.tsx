@@ -97,14 +97,14 @@ const Container = styled.div`
   display: flex;
   flex-direction: column;
   align-items: center;
-  height: 100vh;
-  height: 100dvh;
+  justify-content: safe center;
+  min-height: 100svh;
   width: 100vw;
   background: ${DESIGN.colors.bg.secondary};
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 12px 16px max(20px, env(safe-area-inset-bottom, 20px));
+  padding: 16px 16px max(24px, env(safe-area-inset-bottom, 24px));
   gap: clamp(8px, 2vh, 20px);
 `;
 

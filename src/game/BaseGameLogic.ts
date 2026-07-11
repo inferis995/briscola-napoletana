@@ -53,6 +53,8 @@ export interface GameState {
   smazzataNumber: number;
   smazzata1Scores?: { [playerId: string]: number };
   smazzata1TeamScores?: { [team: string]: number };
+  smazzata2Scores?: { [playerId: string]: number };
+  smazzata2TeamScores?: { [team: string]: number };
 }
 
 export interface GameConfig {

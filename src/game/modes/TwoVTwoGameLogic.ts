@@ -289,7 +289,10 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
         return this.getState();
       }
 
-      // Smazzata 2: combine scores with smazzata 1
+      // Smazzata 2: save scores separately, combine only for winner determination
+      const smazzata2Scores = { ...scores };
+      const smazzata2TeamScores = { ...teamScores };
+
       const combinedScores = { ...scores };
       if (this.state.smazzata1Scores) {
         Object.keys(combinedScores).forEach(pid => {
@@ -317,10 +320,12 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
         playerHands: newHands,
         playerStacks: newStacks,
         playedCards: [],
-        finalScores: combinedScores,
+        finalScores: smazzata2Scores,
+        smazzata2Scores,
+        smazzata2TeamScores,
         gameWinnerId: gameWinner,
         roundHistory: [...this.state.roundHistory, historyEntry],
-        teamScores: combinedTeamScores,
+        teamScores: smazzata2TeamScores,
         winnerTeam,
         turnOrder: newTurnOrder,
       };

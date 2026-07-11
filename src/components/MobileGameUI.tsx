@@ -772,6 +772,30 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
                 </ScoresGrid>
               </>
             )}
+            {gameState.smazzata1Scores && gameState.smazzata2Scores && (
+              <div style={{ marginTop: '8px', padding: '10px', background: DESIGN.colors.surfaces.elevated, borderRadius: DESIGN.radius.buttons }}>
+                <div style={{ fontSize: '10px', color: DESIGN.colors.text.tertiary, textTransform: 'uppercase', letterSpacing: '1px', marginBottom: '6px' }}>Riepilogo</div>
+                {isTeamMode ? (
+                  <>
+                    {[1, 2].map(teamNum => (
+                      <div key={teamNum} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: TEAM_COLORS[teamNum], fontSize: '13px' }}>
+                        <span>Sq.{teamNum}</span>
+                        <span>{gameState.smazzata1TeamScores?.[String(teamNum)] || 0} — {gameState.smazzata2TeamScores?.[String(teamNum)] || 0}</span>
+                      </div>
+                    ))}
+                  </>
+                ) : (
+                  <>
+                    {[...players].map(player => (
+                      <div key={player.id} style={{ display: 'flex', justifyContent: 'space-between', padding: '3px 0', color: DESIGN.colors.text.secondary, fontSize: '13px' }}>
+                        <span>{getPlayerName(player)}</span>
+                        <span>{gameState.smazzata1Scores?.[player.id] || 0} — {gameState.smazzata2Scores?.[player.id] || 0}</span>
+                      </div>
+                    ))}
+                  </>
+                )}
+              </div>
+            )}
             {isHostPlayer && onPlayAgain && (
               <PlayAgainButton onClick={onPlayAgain}>RIGIOCA</PlayAgainButton>
             )}

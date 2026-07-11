@@ -225,7 +225,10 @@ export class OneVOneGameLogic extends BaseGameLogic {
       }
 
       // Smazzata 2 (or single-smazzata mode): compute final winner
-      // Combine smazzata1 scores with current scores
+      // Save smazzata 2 scores separately for UI display
+      const smazzata2Scores = { ...scores };
+
+      // Combine smazzata1 scores with current scores ONLY for winner determination
       const combinedScores = { ...scores };
       if (this.state.smazzata1Scores) {
         Object.keys(combinedScores).forEach(pid => {
@@ -245,7 +248,8 @@ export class OneVOneGameLogic extends BaseGameLogic {
         playerHands: newHands,
         playerStacks: newStacks,
         playedCards: [],
-        finalScores: combinedScores,
+        finalScores: smazzata2Scores,
+        smazzata2Scores,
         gameWinnerId: gameWinner,
         roundHistory: [...this.state.roundHistory, historyEntry],
       };

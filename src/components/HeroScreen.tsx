@@ -100,8 +100,6 @@ const Container = styled.div`
   min-height: 100svh;
   width: 100%;
   background: ${DESIGN.colors.bg.secondary};
-  overflow-y: auto;
-  -webkit-overflow-scrolling: touch;
   padding: 24px 16px max(24px, env(safe-area-inset-bottom, 24px));
   gap: clamp(8px, 2vh, 20px);
 `;

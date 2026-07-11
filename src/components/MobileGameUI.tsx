@@ -811,8 +811,6 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
                     {isYou && <YouBadge> TU</YouBadge>}
                   </PlayerPillName>
                   <PlayerPillStats>
-                    <span>Mano <PlayerPillStatValue>{gameState.playerHands[player.id]?.length || 0}</PlayerPillStatValue></span>
-                    <span>Prese <PlayerPillStatValue>{gameState.playerStacks[player.id]?.length || 0}</PlayerPillStatValue></span>
                     {isTeamMode && teams[player.id] && (
                       <MobileTeamIndicator team={teams[player.id]}>T{teams[player.id]}</MobileTeamIndicator>
                     )}

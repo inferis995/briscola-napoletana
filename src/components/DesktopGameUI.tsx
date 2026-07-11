@@ -819,16 +819,6 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
                   </div>
                 </div>
               </OpponentHeader>
-              <OpponentStats>
-                <StatItem>
-                  <div>Mano</div>
-                  <div>{gameState.playerHands[player.id]?.length || 0}</div>
-                </StatItem>
-                <StatItem>
-                  <div>Prese</div>
-                  <div>{gameState.playerStacks[player.id]?.length || 0}</div>
-                </StatItem>
-              </OpponentStats>
             </OpponentCard>
           );
         })}

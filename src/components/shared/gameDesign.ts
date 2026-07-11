@@ -157,31 +157,20 @@ export const TEAM_COLORS: { [team: number]: string } = {
   2: '#e63946',
 };
 
-// ===== SWAP MECHANICS =====
+// ===== SWAP MECHANICS (DISABLED — non previsto nelle regole napoletane) =====
 export const MAJOR_VALUES: CardValue[] = [
   CardValue.KING, CardValue.KNIGHT, CardValue.JACK, CardValue.ONE, CardValue.THREE
 ];
 
 /**
- * Check if a card in hand can be swapped with the current trump card.
- * 7 of trump suit → swap major trump cards (King, Knight, Jack, Ace, Three)
- * 2 of trump suit → swap minor trump cards (everything else)
+ * Swap disabilitato per conformità alle regole napoletane classiche.
+ * Nessuna carta può essere scambiata con la briscola sul tavolo.
  */
 export const canSwapWithTrump = (
-  card: CardType,
-  trumpCard: CardType | null,
-  deckLength: number
-): boolean => {
-  if (!trumpCard || deckLength === 0) return false;
-  if (card.suit !== trumpCard.suit) return false;
-
-  const isMajorTrump = MAJOR_VALUES.includes(trumpCard.value);
-
-  if (card.value === CardValue.SEVEN && isMajorTrump) return true;
-  if (card.value === CardValue.TWO && !isMajorTrump) return true;
-
-  return false;
-};
+  _card: CardType,
+  _trumpCard: CardType | null,
+  _deckLength: number
+): boolean => false;
 
 // ===== ADDITIONAL SHARED ANIMATIONS =====
 export const cardEntrance = keyframes`

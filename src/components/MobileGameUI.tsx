@@ -859,12 +859,10 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
         </HandLabel>
         <HandRow>
           {playerHand.map((card, idx) => {
-            const swappable = canSwapWithTrump(card, gameState.trumpCard, gameState.deck.length);
             return (
               <HandCardSlot key={`${gameState.roundNumber}_${card.id}`} entranceDelay={idx * 60}>
                 <HandCard
                   isPlayable={isCurrentPlayerTurn}
-                  isSwappable={swappable}
                   onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
                 >
                   <CardComponent
@@ -873,11 +871,6 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
                     transform=""
                     colors={cardColors}
                   />
-                  {swappable && (
-                    <SwapBadge onClick={(e) => { e.stopPropagation(); onSwapTrump(card); }}>
-                      SWAP
-                    </SwapBadge>
-                  )}
                 </HandCard>
               </HandCardSlot>
             );

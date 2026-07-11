@@ -279,7 +279,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         <GlobalStyle />
         <LobbyContainer>
           <LobbyHeader>
-            <LobbyTitle>BRISCOLA</LobbyTitle>
+            <LobbyTitle>BRISCOLA NAPOLETANA</LobbyTitle>
             <LobbySubtitle>{activeMode === GameMode.ONE_ON_ONE ? '1 v 1' : activeMode === GameMode.TWO_VS_TWO ? '2 v 2' : activeMode === GameMode.THREE_FOR_ALL ? '3 for All' : 'Loading...'} • Waiting Room</LobbySubtitle>
           </LobbyHeader>
 
@@ -432,9 +432,9 @@ const GlobalStyle = createGlobalStyle`
   body {
     margin: 0;
     padding: 0;
-    background: #1a1a1a;
-    color: #ffffff;
-    font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: #0a120a;
+    color: #f5f0e8;
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
     overflow: hidden;
     user-select: none;
     -webkit-text-size-adjust: 100%;
@@ -450,7 +450,7 @@ const GlobalStyle = createGlobalStyle`
 
 // ===== GAME WRAPPER =====
 const GameWrapper = styled.div`
-  background: ${DESIGN.colors.bg.secondary};
+  background: radial-gradient(ellipse at center, #0f1f0f 0%, #0a120a 100%);
   height: 100vh;
   height: 100dvh;
   width: 100vw;
@@ -1091,7 +1091,7 @@ export default function Home() {
       <>
         <GlobalStyle />
         <ConnectingWrapper>
-          <CardBackImage src="/assets/cards/back.png" alt="Loading" />
+          <CardBackImage src="/assets/cards/back.jpg" alt="Loading" />
           <ConnectingTextRow>
             {connectingText}
             <AnimDot delay={0}>.</AnimDot>

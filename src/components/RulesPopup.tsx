@@ -246,20 +246,20 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
             four suits:
             <CardShowcase>
               <div>
-                <CardImage src="/assets/cards/coin/coin_1.png" alt="Coins" />
-                <CardLabel>Coins</CardLabel>
+                <CardImage src="/assets/cards/denari/denari_1.jpg" alt="Coins" />
+                <CardLabel>Denari</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/cup/cup_1.png" alt="Cups" />
-                <CardLabel>Cups</CardLabel>
+                <CardImage src="/assets/cards/coppe/coppe_1.jpg" alt="Coppe" />
+                <CardLabel>Coppe</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/sword/sword_1.png" alt="Swords" />
-                <CardLabel>Swords</CardLabel>
+                <CardImage src="/assets/cards/spade/spade_1.jpg" alt="Spade" />
+                <CardLabel>Spade</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/club/club_1.png" alt="Clubs" />
-                <CardLabel>Clubs</CardLabel>
+                <CardImage src="/assets/cards/bastoni/bastoni_1.jpg" alt="Bastoni" />
+                <CardLabel>Bastoni</CardLabel>
               </div>
             </CardShowcase>
           </Section>
@@ -273,13 +273,13 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
             </div>
             <CardShowcase>
               <div>
-                <CardImage src="/assets/cards/coin/coin_5.png" alt="Card 1" />
+                <CardImage src="/assets/cards/denari/denari_5.jpg" alt="Card 1" />
               </div>
               <div>
-                <CardImage src="/assets/cards/cup/cup_knight.png" alt="Card 2" />
+                <CardImage src="/assets/cards/coppe/coppe_knight.jpg" alt="Card 2" />
               </div>
               <div>
-                <CardImage src="/assets/cards/sword/sword_3.png" alt="Card 3" />
+                <CardImage src="/assets/cards/spade/spade_3.jpg" alt="Card 3" />
               </div>
             </CardShowcase>
           </Section>
@@ -307,24 +307,24 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
             </div>
             <CardShowcase>
               <div>
-                <CardImage src="/assets/cards/coin/coin_1.png" alt="Ace" />
-                <CardLabel>Ace</CardLabel>
+                <CardImage src="/assets/cards/denari/denari_1.jpg" alt="Asso" />
+                <CardLabel>Asso</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/coin/coin_3.png" alt="Three" />
-                <CardLabel>Three</CardLabel>
+                <CardImage src="/assets/cards/denari/denari_3.jpg" alt="Tre" />
+                <CardLabel>Tre</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/coin/coin_king.png" alt="King" />
-                <CardLabel>King</CardLabel>
+                <CardImage src="/assets/cards/denari/denari_king.jpg" alt="Re" />
+                <CardLabel>Re</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/coin/coin_knight.png" alt="Knight" />
-                <CardLabel>Knight</CardLabel>
+                <CardImage src="/assets/cards/denari/denari_knight.jpg" alt="Cavallo" />
+                <CardLabel>Cavallo</CardLabel>
               </div>
               <div>
-                <CardImage src="/assets/cards/coin/coin_jack.png" alt="Jack" />
-                <CardLabel>Jack</CardLabel>
+                <CardImage src="/assets/cards/denari/denari_jack.jpg" alt="Fante" />
+                <CardLabel>Fante</CardLabel>
               </div>
             </CardShowcase>
           </Section>
@@ -332,74 +332,74 @@ export const RulesPopup: React.FC<RulesPopupProps> = ({ onClose }) => {
           <Section>
             <SectionTitle>Trump Swap</SectionTitle>
             If you hold a <Highlight>low trump card</Highlight> (value 2–7) and the face-up trump
-            is a high card (King, Knight, Jack, Ace, or Three), you can swap them before playing.
+            is a high card (Re, Cavallo, Fante, Asso o Tre), you can swap them before playing.
           </Section>
 
           <Section>
             <SectionTitle>Card Points</SectionTitle>
             Only certain cards score points. Here's what each card is worth:
             <CardRow>
-              <CardImageSmall src="/assets/cards/coin/coin_1.png" alt="Ace Coins" />
-              <CardImageSmall src="/assets/cards/cup/cup_1.png" alt="Ace Cups" />
-              <CardImageSmall src="/assets/cards/sword/sword_1.png" alt="Ace Swords" />
-              <CardImageSmall src="/assets/cards/club/club_1.png" alt="Ace Clubs" />
+              <CardImageSmall src="/assets/cards/denari/denari_1.jpg" alt="Asso Denari" />
+              <CardImageSmall src="/assets/cards/coppe/coppe_1.jpg" alt="Asso Coppe" />
+              <CardImageSmall src="/assets/cards/spade/spade_1.jpg" alt="Asso Spade" />
+              <CardImageSmall src="/assets/cards/bastoni/bastoni_1.jpg" alt="Asso Bastoni" />
               <CardInfo>
-                <CardName>Ace (1)</CardName>
-                <CardScore>11 pts</CardScore>
+                <CardName>Asso (1)</CardName>
+                <CardScore>11 pt</CardScore>
               </CardInfo>
             </CardRow>
             <CardRow>
-              <CardImageSmall src="/assets/cards/coin/coin_3.png" alt="Three Coins" />
-              <CardImageSmall src="/assets/cards/cup/cup_3.png" alt="Three Cups" />
-              <CardImageSmall src="/assets/cards/sword/sword_3.png" alt="Three Swords" />
-              <CardImageSmall src="/assets/cards/club/club_3.png" alt="Three Clubs" />
+              <CardImageSmall src="/assets/cards/denari/denari_3.jpg" alt="Tre Denari" />
+              <CardImageSmall src="/assets/cards/coppe/coppe_3.jpg" alt="Tre Coppe" />
+              <CardImageSmall src="/assets/cards/spade/spade_3.jpg" alt="Tre Spade" />
+              <CardImageSmall src="/assets/cards/bastoni/bastoni_3.jpg" alt="Tre Bastoni" />
               <CardInfo>
-                <CardName>Three (3)</CardName>
-                <CardScore>10 pts</CardScore>
+                <CardName>Tre (3)</CardName>
+                <CardScore>10 pt</CardScore>
               </CardInfo>
             </CardRow>
             <CardRow>
-              <CardImageSmall src="/assets/cards/coin/coin_king.png" alt="King Coins" />
-              <CardImageSmall src="/assets/cards/cup/cup_king.png" alt="King Cups" />
-              <CardImageSmall src="/assets/cards/sword/sword_king.png" alt="King Swords" />
-              <CardImageSmall src="/assets/cards/club/club_king.png" alt="King Clubs" />
+              <CardImageSmall src="/assets/cards/denari/denari_king.jpg" alt="Re Denari" />
+              <CardImageSmall src="/assets/cards/coppe/coppe_king.jpg" alt="Re Coppe" />
+              <CardImageSmall src="/assets/cards/spade/spade_king.jpg" alt="Re Spade" />
+              <CardImageSmall src="/assets/cards/bastoni/bastoni_king.jpg" alt="Re Bastoni" />
               <CardInfo>
-                <CardName>King (10)</CardName>
-                <CardScore>4 pts</CardScore>
+                <CardName>Re (10)</CardName>
+                <CardScore>4 pt</CardScore>
               </CardInfo>
             </CardRow>
             <CardRow>
-              <CardImageSmall src="/assets/cards/coin/coin_knight.png" alt="Knight Coins" />
-              <CardImageSmall src="/assets/cards/cup/cup_knight.png" alt="Knight Cups" />
-              <CardImageSmall src="/assets/cards/sword/sword_knight.png" alt="Knight Swords" />
-              <CardImageSmall src="/assets/cards/club/club_knight.png" alt="Knight Clubs" />
+              <CardImageSmall src="/assets/cards/denari/denari_knight.jpg" alt="Cavallo Denari" />
+              <CardImageSmall src="/assets/cards/coppe/coppe_knight.jpg" alt="Cavallo Coppe" />
+              <CardImageSmall src="/assets/cards/spade/spade_knight.jpg" alt="Cavallo Spade" />
+              <CardImageSmall src="/assets/cards/bastoni/bastoni_knight.jpg" alt="Cavallo Bastoni" />
               <CardInfo>
-                <CardName>Knight (9)</CardName>
-                <CardScore>3 pts</CardScore>
+                <CardName>Cavallo (9)</CardName>
+                <CardScore>3 pt</CardScore>
               </CardInfo>
             </CardRow>
             <CardRow>
-              <CardImageSmall src="/assets/cards/coin/coin_jack.png" alt="Jack Coins" />
-              <CardImageSmall src="/assets/cards/cup/cup_jack.png" alt="Jack Cups" />
-              <CardImageSmall src="/assets/cards/sword/sword_jack.png" alt="Jack Swords" />
-              <CardImageSmall src="/assets/cards/club/club_jack.png" alt="Jack Clubs" />
+              <CardImageSmall src="/assets/cards/denari/denari_jack.jpg" alt="Fante Denari" />
+              <CardImageSmall src="/assets/cards/coppe/coppe_jack.jpg" alt="Fante Coppe" />
+              <CardImageSmall src="/assets/cards/spade/spade_jack.jpg" alt="Fante Spade" />
+              <CardImageSmall src="/assets/cards/bastoni/bastoni_jack.jpg" alt="Fante Bastoni" />
               <CardInfo>
-                <CardName>Jack (8)</CardName>
-                <CardScore>2 pts</CardScore>
+                <CardName>Fante (8)</CardName>
+                <CardScore>2 pt</CardScore>
               </CardInfo>
             </CardRow>
             <CardRow>
-              <CardImageSmall src="/assets/cards/coin/coin_2.png" alt="Two Coins" />
-              <CardImageSmall src="/assets/cards/cup/cup_2.png" alt="Two Cups" />
-              <CardImageSmall src="/assets/cards/sword/sword_2.png" alt="Two Swords" />
-              <CardImageSmall src="/assets/cards/club/club_2.png" alt="Two Clubs" />
+              <CardImageSmall src="/assets/cards/denari/denari_2.jpg" alt="Due Denari" />
+              <CardImageSmall src="/assets/cards/coppe/coppe_2.jpg" alt="Due Coppe" />
+              <CardImageSmall src="/assets/cards/spade/spade_2.jpg" alt="Due Spade" />
+              <CardImageSmall src="/assets/cards/bastoni/bastoni_2.jpg" alt="Due Bastoni" />
               <CardInfo>
-                <CardName>Two through Seven</CardName>
-                <CardScore>0 pts</CardScore>
+                <CardName>Dal Due al Sette</CardName>
+                <CardScore>0 pt</CardScore>
               </CardInfo>
             </CardRow>
             <div style={{ marginTop: '8px', color: DESIGN.colors.accents.green, fontWeight: '600' }}>
-              Total points: <Highlight>120</Highlight>
+              Punti totali: <Highlight>120</Highlight>
             </div>
           </Section>
         </Content>

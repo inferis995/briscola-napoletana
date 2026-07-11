@@ -31,7 +31,7 @@ const GameContainer = styled.div`
   height: 100vh;
   background: ${DESIGN.colors.bg.primary};
   color: ${DESIGN.colors.text.primary};
-  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
   position: relative;
 `;
@@ -153,7 +153,7 @@ const CenterArea = styled.div`
   flex-direction: column;
   padding: ${DESIGN.spacing.lg};
   gap: ${DESIGN.spacing.lg};
-  background: ${DESIGN.colors.bg.primary};
+  background: radial-gradient(ellipse at center, #0f1f0f 0%, #0a120a 100%);
   position: relative;
 `;
 
@@ -822,7 +822,7 @@ export const DesktopGameUI: React.FC<GameUIProps> = ({
       <CenterArea>
         <GameHeader>
           <GameTitle>
-            BRISCOLA<GameVersion>v{packageJson.version}</GameVersion>
+            BRISCOLA NAPOLETANA<GameVersion>v{packageJson.version}</GameVersion>
           </GameTitle>
           <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
             <RoundInfo>Round {gameState.roundNumber}</RoundInfo>

@@ -33,7 +33,7 @@ const GameContainer = styled.div`
   height: 100dvh;
   background: ${DESIGN.colors.bg.primary};
   color: ${DESIGN.colors.text.primary};
-  font-family: 'SF Pro Display', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   overflow: hidden;
   position: relative;
 `;
@@ -741,7 +741,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
       <TopBar>
         <div>
           <GameTitleMobile>
-            BRISCOLA<GameVersionMobile>v{packageJson.version}</GameVersionMobile>
+            BRISCOLA NAPOLETANA<GameVersionMobile>v{packageJson.version}</GameVersionMobile>
           </GameTitleMobile>
           <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
             <RoundBadge>Round {gameState.roundNumber}</RoundBadge>

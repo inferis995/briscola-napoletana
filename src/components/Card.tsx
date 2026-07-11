@@ -4,10 +4,10 @@ import ReactDOM from 'react-dom';
 
 // ===== TYPE DEFINITIONS =====
 export enum Suit {
-  CLUB = 'club',
-  COIN = 'coin',
-  CUP = 'cup',
-  SWORD = 'sword'
+  BASTONI = 'bastoni',
+  DENARI = 'denari',
+  COPPE = 'coppe',
+  SPADE = 'spade'
 }
 
 export enum CardValue {
@@ -61,16 +61,16 @@ export const CARD_SCORES: Record<CardValue, number> = {
 };
 
 export const CARD_NAMES: Record<CardValue, string> = {
-  [CardValue.ONE]: 'Ace',
-  [CardValue.TWO]: 'Two',
-  [CardValue.THREE]: 'Three',
-  [CardValue.FOUR]: 'Four',
-  [CardValue.FIVE]: 'Five',
-  [CardValue.SIX]: 'Six',
-  [CardValue.SEVEN]: 'Seven',
-  [CardValue.JACK]: 'Jack',
-  [CardValue.KNIGHT]: 'Knight',
-  [CardValue.KING]: 'King'
+  [CardValue.ONE]: 'Asso',
+  [CardValue.TWO]: 'Due',
+  [CardValue.THREE]: 'Tre',
+  [CardValue.FOUR]: 'Quattro',
+  [CardValue.FIVE]: 'Cinque',
+  [CardValue.SIX]: 'Sei',
+  [CardValue.SEVEN]: 'Sette',
+  [CardValue.JACK]: 'Fante',
+  [CardValue.KNIGHT]: 'Cavallo',
+  [CardValue.KING]: 'Re'
 };
 
 // ===== UTILITY FUNCTIONS =====
@@ -81,7 +81,7 @@ export const createDeck = (): Card[] => {
       value,
       score: CARD_SCORES[value],
       name: `${CARD_NAMES[value]} of ${suit}s`,
-      imagePath: `/assets/cards/${suit}/${suit}_${value}.png`,
+      imagePath: `/assets/cards/${suit}/${suit}_${value}.jpg`,
       id: `${suit}_${value}`
     }))
   );
@@ -229,7 +229,7 @@ export const CardComponent: React.FC<CardComponentProps> = ({
         </CardAvatar>
       )}
       {isBack ? (
-        <CardImage src="/assets/cards/back.png" alt="Card back" draggable={false} />
+        <CardImage src="/assets/cards/back.jpg" alt="Card back" draggable={false} />
       ) : card ? (
         <>
           <CardImage src={card.imagePath} alt={card.name} draggable={false} />
@@ -292,7 +292,7 @@ const CardWrapper = styled.div<{
   cursor: ${props => props.$disabled ? 'not-allowed' : props.$isButton ? 'pointer' : 'default'};
   opacity: ${props => props.$disabled ? 0.5 : 1};
   transform: ${props => props.$transform || 'none'};
-  box-shadow: ${props => props.$isButton ? '0px 0.4rem 0px rgba(0, 0, 0, 0.25)' : 'none'};
+  box-shadow: ${props => props.$isButton ? '0px 0.4rem 0px rgba(0, 0, 0, 0.25)' : '0 2px 8px rgba(0,0,0,0.3), 0 0 0 1px rgba(212,160,23,0.15)'};
   transition: all 0.2s ease;
 
   &:hover {

@@ -31,10 +31,10 @@ export const LS_USERNAME_KEY = 'briscola_username';
 export const LS_EMOJI_KEY = 'briscola_avatarEmoji';
 
 const HERO_CARDS = [
-  { src: '/assets/cards/cup/cup_1.png', rotation: -20, alt: 'Ace of Cups' },
-  { src: '/assets/cards/coin/coin_1.png', rotation: -7, alt: 'Ace of Coins' },
-  { src: '/assets/cards/club/club_1.png', rotation: 7, alt: 'Ace of Clubs' },
-  { src: '/assets/cards/sword/sword_1.png', rotation: 20, alt: 'Ace of Swords' },
+  { src: '/assets/cards/coppe/coppe_1.jpg', rotation: -20, alt: 'Asso di Coppe' },
+  { src: '/assets/cards/denari/denari_1.jpg', rotation: -7, alt: 'Asso di Denari' },
+  { src: '/assets/cards/bastoni/bastoni_1.jpg', rotation: 7, alt: 'Asso di Bastoni' },
+  { src: '/assets/cards/spade/spade_1.jpg', rotation: 20, alt: 'Asso di Spade' },
 ];
 
 // ===== GAME MODE OPTIONS =====
@@ -125,7 +125,7 @@ const Title = styled.h1`
     90deg,
     ${DESIGN.colors.text.primary} 0%,
     ${DESIGN.colors.text.primary} 40%,
-    ${DESIGN.colors.accents.green} 50%,
+    #d4a017 50%,
     ${DESIGN.colors.text.primary} 60%,
     ${DESIGN.colors.text.primary} 100%
   );
@@ -170,7 +170,7 @@ const CardFanContainer = styled.div`
     inset: -20px;
     background: radial-gradient(
       ellipse at center bottom,
-      ${DESIGN.colors.accents.green}10 0%,
+      rgba(212,160,23,0.12) 0%,
       transparent 70%
     );
     pointer-events: none;
@@ -184,10 +184,10 @@ const FanCard = styled.div`
   width: clamp(55px, 11vw, 100px);
   aspect-ratio: 0.62;
   transform-origin: bottom center;
-  border: 2px solid ${DESIGN.colors.bg.tertiary};
+  border: 2px solid #c8b890;
   border-radius: clamp(6px, 1vw, 12px);
   overflow: hidden;
-  background: ${DESIGN.colors.surfaces.cards};
+  background: #f5f0e8;
   z-index: 1;
 
   img {
@@ -206,9 +206,9 @@ const Divider = styled.div`
   background: linear-gradient(
     90deg,
     transparent,
-    ${DESIGN.colors.bg.tertiary},
-    ${DESIGN.colors.accents.green}40,
-    ${DESIGN.colors.bg.tertiary},
+    #162616,
+    rgba(212,160,23,0.4),
+    #162616,
     transparent
   );
   flex-shrink: 0;
@@ -490,9 +490,9 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
       )}
 
       <TitleSection>
-        <Title>BRISCOLA</Title>
+        <Title>BRISCOLA NAPOLETANA</Title>
         <Subtitle>
-          Classic Italian Card Game
+          Il gioco di carte più amato di Napoli
           <VersionBadge>v{packageJson.version}</VersionBadge>
         </Subtitle>
       </TitleSection>

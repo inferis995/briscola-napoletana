@@ -1,33 +1,34 @@
 import { keyframes } from 'styled-components';
 
-// ===== DESIGN SYSTEM =====
+// ===== DESIGN SYSTEM - BRISCOLA NAPOLETANA =====
+// Professional card table: felt verde, accenti oro Napoli, caldo e premium
 export const DESIGN = {
   colors: {
     bg: {
-      primary: '#111111',
-      secondary: '#1a1a1a',
-      tertiary: '#2a2a2a',
+      primary: '#0a120a',
+      secondary: '#0d1a0d',
+      tertiary: '#162616',
     },
     surfaces: {
-      cards: '#ffffff',
-      containers: '#1f1f1f',
-      elevated: '#2d2d2d',
+      cards: '#f5f0e8',
+      containers: '#132113',
+      elevated: '#1e3220',
     },
     text: {
-      primary: '#ffffff',
-      secondary: '#a0a0a0',
-      tertiary: '#606060',
+      primary: '#f5f0e8',
+      secondary: '#a09880',
+      tertiary: '#706850',
     },
     accents: {
-      green: '#00ff88',
-      cyan: '#00d4ff',
-      pink: '#ff6b9d',
+      green: '#d4a017',
+      cyan: '#2196f3',
+      pink: '#e63946',
     },
   },
   radius: {
-    cards: '12px',
-    containers: '16px',
-    buttons: '12px',
+    cards: '10px',
+    containers: '14px',
+    buttons: '10px',
   },
   spacing: {
     xxs: '4px',
@@ -90,11 +91,11 @@ export const fadeOut = keyframes`
 // ===== SHARED CARD COLORS =====
 export const cardColors = {
   cardBg: DESIGN.colors.surfaces.cards,
-  cardBorder: DESIGN.colors.bg.tertiary,
+  cardBorder: '#c8b890',
   primary: DESIGN.colors.accents.green,
   secondary: DESIGN.colors.text.secondary,
-  text: DESIGN.colors.text.primary,
-  textSecondary: DESIGN.colors.text.tertiary,
+  text: '#2a1f0a',
+  textSecondary: '#6a5a40',
   surface: DESIGN.colors.surfaces.containers,
 };
 
@@ -152,8 +153,8 @@ export const getPlayerTeam = (player: PlayerState): number | null => {
 };
 
 export const TEAM_COLORS: { [team: number]: string } = {
-  1: DESIGN.colors.accents.cyan,
-  2: DESIGN.colors.accents.pink,
+  1: '#2196f3',
+  2: '#e63946',
 };
 
 // ===== SWAP MECHANICS =====

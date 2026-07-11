@@ -1,6 +1,6 @@
 {
-  "name": "briscola_online",
-  "version": "2.3.5",
+  "name": "briscola-napoletana",
+  "version": "1.0.0",
   "private": true,
   "scripts": {
     "dev": "next dev",

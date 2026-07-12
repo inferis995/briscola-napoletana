@@ -433,6 +433,76 @@ const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: 
   }
 `;
 
+// ===== QUICK CHAT BAR (always visible) =====
+const QuickChatBar = styled.form`
+  display: flex;
+  gap: 6px;
+  padding: 6px 10px max(6px, env(safe-area-inset-bottom, 6px));
+  background: rgba(6,10,6,0.85);
+  backdrop-filter: blur(8px);
+  z-index: 60;
+  flex-shrink: 0;
+  border-top: 1px solid rgba(212,160,23,0.08);
+  align-items: center;
+`;
+
+const QuickChatInput = styled.input`
+  flex: 1;
+  padding: 8px 12px;
+  border-radius: 20px;
+  border: 1px solid rgba(212,160,23,0.15);
+  background: rgba(19,33,19,0.9);
+  color: ${DESIGN.colors.text.primary};
+  font-size: 14px;
+  outline: none;
+  transition: border-color 150ms;
+  min-width: 0;
+
+  &:focus {
+    border-color: #d4a017;
+  }
+
+  &::placeholder {
+    color: ${DESIGN.colors.text.tertiary};
+  }
+`;
+
+const QuickChatSend = styled.button`
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: none;
+  background: #d4a017;
+  color: #0a120a;
+  font-size: 16px;
+  font-weight: 700;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: transform 150ms;
+
+  &:active { transform: scale(0.92); }
+  &:disabled { opacity: 0.4; cursor: default; }
+`;
+
+const QuickChatToggle = styled.button`
+  flex-shrink: 0;
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  border: 1px solid rgba(212,160,23,0.15);
+  background: rgba(19,33,19,0.9);
+  color: ${DESIGN.colors.text.secondary};
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  &:active { transform: scale(0.92); }
+`;
+
 // ===== HAND DOCK (bottom - your cards) =====
 const HandDock = styled.div`
   display: flex;
@@ -604,6 +674,8 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   const [showQuickChat, setShowQuickChat] = useState(false);
   const [isOnline, setIsOnline] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
+  const [chatInput, setChatInput] = useState('');
+  const [showChatBar, setShowChatBar] = useState(false);
 
   // Turn timer
   const isMyTurn = gameState.phase === 'playing' && currentTurnIndex === players.findIndex(p => p.id === currentPlayerId);
@@ -808,7 +880,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
             <RulesIcon />
           </TopBarButton>
           {onQuickChat && (
-            <TopBarButton onClick={() => setShowQuickChat(true)} title="Chat">
+            <TopBarButton onClick={() => { setShowChatBar(!showChatBar); setShowQuickChat(false); }} title="Chat veloce">
               <QuickChatIcon />
             </TopBarButton>
           )}
@@ -910,6 +982,32 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           </HandCardWrapper>
         ))}
       </HandDock>
+
+      {/* Quick chat bar - toggleable for fast typing on mobile */}
+      {showChatBar && onQuickChat && (
+        <QuickChatBar
+          onSubmit={(e) => {
+            e.preventDefault();
+            const msg = chatInput.trim();
+            if (msg) { onQuickChat(msg.slice(0, 50)); setChatInput(''); }
+          }}
+        >
+          <QuickChatInput
+            type="text"
+            value={chatInput}
+            onChange={(e) => setChatInput(e.target.value.slice(0, 50))}
+            placeholder="Scrivi messaggio..."
+            maxLength={50}
+            autoComplete="off"
+          />
+          <QuickChatSend type="submit" disabled={!chatInput.trim()}>
+            ➤
+          </QuickChatSend>
+          <QuickChatToggle onClick={() => setShowChatBar(false)}>
+            ✕
+          </QuickChatToggle>
+        </QuickChatBar>
+      )}
 
       {/* Modals */}
       {showRules && <RulesPopup onClose={() => setShowRules(false)} />}

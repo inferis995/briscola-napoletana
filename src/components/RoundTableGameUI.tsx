@@ -74,13 +74,12 @@ const TopBar = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 8px 16px;
-  background: rgba(10,18,10,0.7);
-  backdrop-filter: blur(8px);
+  padding: 10px 16px max(10px, env(safe-area-inset-top, 10px));
+  background: rgba(6,10,6,0.85);
+  backdrop-filter: blur(10px);
   z-index: 100;
   flex-shrink: 0;
-  min-height: 44px;
-  border-bottom: 1px solid rgba(212,160,23,0.1);
+  border-bottom: 1px solid rgba(212,160,23,0.12);
 `;
 
 const TopBarTitle = styled.div`
@@ -151,57 +150,72 @@ const FeltTable = styled.div`
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  width: min(85%, 600px);
-  height: min(65%, 420px);
-  background: radial-gradient(ellipse at center, #1a5c33 0%, #0d3a1c 70%, #082a14 100%);
+  width: min(92%, 720px);
+  height: min(72%, 480px);
+  background:
+    radial-gradient(ellipse at 40% 30%, rgba(255,255,255,0.06) 0%, transparent 50%),
+    radial-gradient(ellipse at center, #1e6e3f 0%, #134d2c 50%, #0a3318 90%, #06210f 100%);
   border-radius: 50%;
-  border: 6px solid #3d2a14;
+  border: 8px solid #2a1a0a;
   box-shadow:
-    inset 0 0 80px rgba(0,0,0,0.5),
-    inset 0 0 20px rgba(0,0,0,0.3),
-    0 8px 40px rgba(0,0,0,0.7);
+    inset 0 0 100px rgba(0,0,0,0.6),
+    inset 0 0 30px rgba(0,0,0,0.4),
+    inset 0 2px 4px rgba(255,255,255,0.08),
+    0 0 0 2px #4a3015,
+    0 12px 50px rgba(0,0,0,0.8);
   z-index: 1;
 
   &::after {
     content: '';
     position: absolute;
-    inset: 6px;
+    inset: 8px;
     border-radius: 50%;
-    border: 2px solid rgba(212,160,23,0.08);
+    border: 2px solid rgba(212,160,23,0.12);
     pointer-events: none;
   }
 
   @media (max-width: 768px) {
-    width: 90%;
-    height: 55%;
+    width: 94%;
+    height: 60%;
+    border-width: 5px;
   }
 `;
 
-// ===== TRUMP CARD BADGE (on table) =====
-const TrumpOnTable = styled.div`
+// ===== TRUMP + DECK ON TABLE =====
+const TrumpDeckContainer = styled.div`
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
   display: flex;
+  align-items: center;
+  gap: 16px;
+  z-index: 2;
+
+  @media (max-width: 768px) {
+    gap: 10px;
+  }
+`;
+
+const TrumpOnTable = styled.div`
+  display: flex;
   flex-direction: column;
   align-items: center;
   gap: 4px;
-  z-index: 2;
-  opacity: 0.9;
 `;
 
 const TrumpMini = styled.div`
   position: relative;
-  width: 40px;
-  height: 56px;
-  border-radius: 4px;
+  width: 52px;
+  height: 73px;
+  border-radius: 5px;
   overflow: hidden;
-  border: 1.5px solid rgba(212,160,23,0.3);
+  border: 2px solid rgba(212,160,23,0.4);
+  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
 
   @media (min-width: 769px) {
-    width: 50px;
-    height: 70px;
+    width: 62px;
+    height: 87px;
   }
 
   img {
@@ -213,34 +227,55 @@ const TrumpMini = styled.div`
 
 const TrumpLabel = styled.span`
   font-size: 9px;
-  color: rgba(212,160,23,0.6);
+  color: rgba(212,160,23,0.7);
   text-transform: uppercase;
-  letter-spacing: 1px;
+  letter-spacing: 1.5px;
+  font-weight: 600;
 `;
 
-// ===== DECK BADGE =====
-const DeckBadge = styled.div`
-  position: absolute;
-  top: 50%;
-  left: calc(50% + 50px);
-  transform: translateY(-50%);
+const DeckOnTable = styled.div`
+  position: relative;
+  width: 52px;
+  height: 73px;
+  border-radius: 5px;
+  background: linear-gradient(135deg, #1a3018 0%, #0a1a08 100%);
+  border: 2px solid rgba(212,160,23,0.25);
+  box-shadow: 2px 2px 0 rgba(0,0,0,0.3), 4px 4px 0 rgba(0,0,0,0.2);
   display: flex;
-  flex-direction: column;
   align-items: center;
-  gap: 2px;
-  z-index: 2;
+  justify-content: center;
 
-  @media (max-width: 768px) {
-    left: calc(50% + 35px);
+  @media (min-width: 769px) {
+    width: 62px;
+    height: 87px;
+  }
+
+  &::after {
+    content: '';
+    position: absolute;
+    inset: 4px;
+    border-radius: 3px;
+    background: repeating-linear-gradient(
+      45deg,
+      rgba(212,160,23,0.08),
+      rgba(212,160,23,0.08) 3px,
+      transparent 3px,
+      transparent 6px
+    );
   }
 `;
 
 const DeckCount = styled.span`
-  font-size: 10px;
-  color: rgba(245,240,232,0.5);
-  background: rgba(0,0,0,0.5);
-  padding: 2px 6px;
-  border-radius: 4px;
+  position: relative;
+  z-index: 1;
+  font-size: 16px;
+  font-weight: 700;
+  color: rgba(245,240,232,0.6);
+  font-family: 'SF Mono', Monaco, monospace;
+
+  @media (min-width: 769px) {
+    font-size: 20px;
+  }
 `;
 
 // ===== PLAYER SEAT =====
@@ -290,23 +325,24 @@ const PlayerSeat = styled.div<{ seat: SeatPosition; isActive: boolean }>`
 `;
 
 const SeatAvatar = styled.div<{ isActive: boolean; teamColor?: string }>`
-  width: 44px;
-  height: 44px;
+  width: 48px;
+  height: 48px;
   border-radius: 50%;
-  background: rgba(19,33,19,0.9);
+  background: rgba(13,26,13,0.92);
   backdrop-filter: blur(8px);
-  border: 2px solid ${props => props.isActive ? '#d4a017' : props.teamColor ? `${props.teamColor}40` : 'rgba(212,160,23,0.15)'};
+  border: 2.5px solid ${props => props.isActive ? '#d4a017' : props.teamColor ? `${props.teamColor}50` : 'rgba(212,160,23,0.2)'};
   display: flex;
   align-items: center;
   justify-content: center;
-  font-size: 22px;
+  font-size: 24px;
   line-height: 1;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4);
   ${props => props.isActive && css`animation: ${pulseGlow} 1.5s ease-in-out infinite;`}
 
   @media (min-width: 769px) {
-    width: 52px;
-    height: 52px;
-    font-size: 26px;
+    width: 56px;
+    height: 56px;
+    font-size: 28px;
   }
 `;
 
@@ -314,17 +350,19 @@ const SeatName = styled.div`
   font-size: 11px;
   font-weight: 600;
   color: ${DESIGN.colors.text.primary};
-  background: rgba(0,0,0,0.6);
-  padding: 2px 8px;
-  border-radius: 6px;
+  background: rgba(0,0,0,0.7);
+  padding: 2px 10px;
+  border-radius: 8px;
   white-space: nowrap;
-  max-width: 90px;
+  max-width: 100px;
   overflow: hidden;
   text-overflow: ellipsis;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.3);
 
   @media (min-width: 769px) {
     font-size: 13px;
-    max-width: 120px;
+    max-width: 130px;
+    padding: 3px 12px;
   }
 `;
 
@@ -400,13 +438,14 @@ const HandDock = styled.div`
   gap: 8px;
   justify-content: center;
   align-items: flex-end;
-  padding: 8px;
+  padding: 10px 8px max(12px, env(safe-area-inset-bottom, 12px));
   z-index: 50;
   flex-shrink: 0;
+  background: linear-gradient(to top, rgba(6,10,6,0.9) 0%, rgba(6,10,6,0.4) 60%, transparent 100%);
 
   @media (min-width: 769px) {
-    gap: 12px;
-    padding: 12px;
+    gap: 14px;
+    padding: 16px 12px max(16px, env(safe-area-inset-bottom, 16px));
   }
 `;
 
@@ -776,20 +815,22 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
       <TableArea>
         <FeltTable />
 
-        {/* Trump card + deck in center */}
-        {gameState.trumpCard && (
-          <TrumpOnTable>
-            <TrumpMini>
-              <img src={gameState.trumpCard.imagePath} alt={gameState.trumpCard.name} />
-            </TrumpMini>
-            <TrumpLabel>Briscola</TrumpLabel>
-          </TrumpOnTable>
-        )}
-        {gameState.deck.length > 0 && (
-          <DeckBadge>
-            <DeckCount>{gameState.deck.length}</DeckCount>
-          </DeckBadge>
-        )}
+        {/* Trump card + deck in center of table */}
+        <TrumpDeckContainer>
+          {gameState.deck.length > 0 && (
+            <DeckOnTable>
+              <DeckCount>{gameState.deck.length}</DeckCount>
+            </DeckOnTable>
+          )}
+          {gameState.trumpCard && (
+            <TrumpOnTable>
+              <TrumpMini>
+                <img src={gameState.trumpCard.imagePath} alt={gameState.trumpCard.name} />
+              </TrumpMini>
+              <TrumpLabel>Briscola</TrumpLabel>
+            </TrumpOnTable>
+          )}
+        </TrumpDeckContainer>
 
         {/* Played cards on the table */}
         {playedCards.map((pc, idx) => {

@@ -6,7 +6,7 @@ import { CardComponent } from '@/components/Card';
 import { MatchHistoryButton } from '@/components/MatchHistory';
 import { RulesPopup, RulesIcon } from '@/components/RulesPopup';
 import { QuickChatPopup, QuickChatBubble, QuickChatIcon } from '@/components/QuickChat';
-import { Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, VolumeX, Palette } from 'lucide-react';
 import packageJson from '../../package.json';
 import {
   DESIGN,
@@ -22,6 +22,7 @@ import { useTurnCountdown, TimerChip } from '@/components/shared/TurnTimer';
 import { useGameFeedback } from '@/components/shared/useGameFeedback';
 import { isSoundEnabled, setSoundEnabled } from '@/components/shared/soundEffects';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
+import { TABLE_THEMES, TableTheme, getSavedTableTheme, saveTableTheme } from '@/components/shared/tableThemes';
 
 // ===== TYPES =====
 type SeatPosition = 'bottom' | 'top' | 'left' | 'right' | 'topLeft' | 'topRight';
@@ -53,13 +54,13 @@ const handEntrance = keyframes`
 `;
 
 // ===== MAIN CONTAINER =====
-const TableContainer = styled.div`
+const TableContainer = styled.div<{ $theme: TableTheme }>`
   position: fixed;
   inset: 0;
   width: 100vw;
   height: 100vh;
   height: 100dvh;
-  background: radial-gradient(ellipse at center, #0f1f0f 0%, #050a05 100%);
+  background: radial-gradient(ellipse at center, ${props => props.$theme.bgCenter} 0%, ${props => props.$theme.bgEdge} 100%);
   overflow: hidden;
   font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   color: ${DESIGN.colors.text.primary};
@@ -157,7 +158,7 @@ const TableArea = styled.div`
 `;
 
 // ===== OVAL FELT TABLE =====
-const FeltTable = styled.div`
+const FeltTable = styled.div<{ $theme: TableTheme }>`
   position: absolute;
   top: 50%;
   left: 50%;
@@ -166,7 +167,7 @@ const FeltTable = styled.div`
   height: min(72%, 480px);
   background:
     radial-gradient(ellipse at 38% 28%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
-    radial-gradient(ellipse at center, #1f7343 0%, #14522f 48%, #0b3a1c 82%, #072812 100%);
+    radial-gradient(ellipse at center, ${props => props.$theme.feltLight} 0%, ${props => props.$theme.feltMid} 48%, ${props => props.$theme.feltDark} 82%, ${props => props.$theme.feltEdge} 100%);
   border-radius: 50%;
   box-shadow:
     inset 0 0 110px rgba(0, 0, 0, 0.6),
@@ -728,6 +729,61 @@ const TurnHint = styled.div<{ mine: boolean }>`
   animation: ${handEntrance} 250ms ease-out;
 `;
 
+// ===== SCELTA COLORE TAVOLO =====
+const ThemeScrim = styled.div`
+  position: fixed;
+  inset: 0;
+  z-index: 190;
+`;
+
+const ThemePickerPanel = styled.div`
+  position: fixed;
+  top: 54px;
+  right: 12px;
+  z-index: 200;
+  background: rgba(10, 16, 10, 0.95);
+  border: 1px solid rgba(212, 160, 23, 0.25);
+  border-radius: 12px;
+  padding: 10px 12px;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.6);
+  animation: ${cardSlideIn} 150ms ease-out;
+`;
+
+const ThemePickerTitle = styled.div`
+  font-size: 9px;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: ${DESIGN.colors.text.tertiary};
+  font-weight: 700;
+  margin-bottom: 8px;
+  text-align: center;
+`;
+
+const SwatchRow = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const Swatch = styled.button<{ $color: string; $selected: boolean }>`
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background:
+    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.25), transparent 55%),
+    ${props => props.$color};
+  border: 2px solid ${props => props.$selected ? '#d4a017' : 'rgba(255, 255, 255, 0.15)'};
+  cursor: pointer;
+  padding: 0;
+  transition: transform 120ms, border-color 120ms;
+
+  &:hover { transform: scale(1.12); }
+  &:active { transform: scale(0.95); }
+
+  ${props => props.$selected && css`
+    box-shadow: 0 0 10px rgba(212, 160, 23, 0.5);
+  `}
+`;
+
 const ReconnectingTag = styled.span`
   font-size: 8px;
   font-weight: 700;
@@ -919,6 +975,15 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     setSoundOn(!soundOn);
   };
 
+  // Colore del tavolo: scelta personale, salvata sul dispositivo
+  const [tableTheme, setTableTheme] = useState<TableTheme>(TABLE_THEMES[0]);
+  const [showThemePicker, setShowThemePicker] = useState(false);
+  useEffect(() => { setTableTheme(getSavedTableTheme()); }, []);
+  const pickTheme = (t: TableTheme) => {
+    setTableTheme(t);
+    saveTableTheme(t.id);
+  };
+
   // Nome robusto: displayName → registro posti → 'Giocatore'
   // (mai il nickname casuale di Playroom)
   const resolveSeatDisplay = (sid: string): { name: string; emoji: string; connected: boolean } => {
@@ -995,7 +1060,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     const isTeamDraw = isTeamMode && (!gameState.winnerTeam || gameState.winnerTeam === 0);
 
     return (
-      <TableContainer>
+      <TableContainer $theme={tableTheme}>
         <GameOverOverlay>
           <GameOverDialog>
             <GameOverTitle>PARTITA FINITA</GameOverTitle>
@@ -1082,7 +1147,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   if (gameState.phase === 'smazzata_complete') {
     const scores = gameState.finalScores;
     return (
-      <TableContainer>
+      <TableContainer $theme={tableTheme}>
         <GameOverOverlay>
           <GameOverDialog>
             <GameOverTitle>SMAZZATA 1</GameOverTitle>
@@ -1121,7 +1186,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
   // ===== GAME VIEW (Round Table) =====
   return (
-    <TableContainer>
+    <TableContainer $theme={tableTheme}>
       {/* Top Bar */}
       <TopBar>
         <TopBarTitle>
@@ -1134,6 +1199,9 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           )}
           <TopBarButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
             {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </TopBarButton>
+          <TopBarButton onClick={() => setShowThemePicker(v => !v)} title="Colore del tavolo">
+            <Palette size={15} />
           </TopBarButton>
           <TopBarButton onClick={() => setShowRules(true)} title="Come si gioca">
             <RulesIcon />
@@ -1152,7 +1220,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
       {/* Table Area */}
       <TableArea>
-        <FeltTable>
+        <FeltTable $theme={tableTheme}>
           {/* Tallone col dorso vero + briscola coricata sotto, ancorati al feltro */}
           <CenterPile>
             {gameState.trumpCard && gameState.deck.length > 0 && (
@@ -1326,6 +1394,27 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
             ✕
           </QuickChatToggle>
         </QuickChatBar>
+      )}
+
+      {/* Scelta colore tavolo */}
+      {showThemePicker && (
+        <>
+          <ThemeScrim onClick={() => setShowThemePicker(false)} />
+          <ThemePickerPanel>
+            <ThemePickerTitle>Colore tavolo</ThemePickerTitle>
+            <SwatchRow>
+              {TABLE_THEMES.map(t => (
+                <Swatch
+                  key={t.id}
+                  $color={t.feltMid}
+                  $selected={t.id === tableTheme.id}
+                  title={t.label}
+                  onClick={() => pickTheme(t)}
+                />
+              ))}
+            </SwatchRow>
+          </ThemePickerPanel>
+        </>
       )}
 
       {/* Modals */}

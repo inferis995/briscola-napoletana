@@ -489,47 +489,40 @@ const TeamBadge = styled.span<{ team: number }>`
 `;
 
 // ===== PLAYED CARD ON TABLE =====
+// Ancorate al FELTRO (percentuali dell'ovale, non dello schermo): le carte
+// di TUTTI i posti atterrano sempre sul panno, su qualunque schermo.
 const PlayedCardSpot = styled.div<{ seat: SeatPosition }>`
   position: absolute;
   z-index: 5;
 
   ${props => props.seat === 'bottom' && `
-    bottom: 28%;
+    bottom: 9%;
     left: 50%;
     transform: translateX(-50%);
   `}
   ${props => props.seat === 'top' && `
-    top: 28%;
+    top: 9%;
     left: 50%;
     transform: translateX(-50%);
   `}
   ${props => props.seat === 'left' && `
-    left: 22%;
+    left: 13%;
     top: 50%;
     transform: translateY(-50%);
   `}
   ${props => props.seat === 'right' && `
-    right: 22%;
+    right: 13%;
     top: 50%;
     transform: translateY(-50%);
   `}
   ${props => props.seat === 'topLeft' && `
-    top: 25%;
-    left: 30%;
+    top: 14%;
+    left: 24%;
   `}
   ${props => props.seat === 'topRight' && `
-    top: 25%;
-    right: 30%;
+    top: 14%;
+    right: 24%;
   `}
-
-  @media (max-width: 768px) {
-    ${props => props.seat === 'bottom' && `bottom: 22%;`}
-    ${props => props.seat === 'top' && `top: 22%;`}
-    ${props => props.seat === 'left' && `left: 12%;`}
-    ${props => props.seat === 'right' && `right: 12%;`}
-    ${props => props.seat === 'topLeft' && `top: 23%; left: 26%;`}
-    ${props => props.seat === 'topRight' && `top: 23%; right: 26%;`}
-  }
 `;
 
 const PlayedCardWrapper = styled.div`
@@ -1238,60 +1231,60 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
             )}
             {gameState.trumpCard && <PileLabel>Briscola</PileLabel>}
           </CenterPile>
+
+          {/* Carte giocate: ancorate al feltro, atterrano sempre sul panno */}
+          {playedCards.map((pc, idx) => {
+            const seat = seatMap.get(pc.playerId);
+            if (!seat) return null;
+            const isWinner = roundWinnerId === pc.playerId;
+            // Direzione della raccolta: dal posto della carta verso il vincitore
+            const wv = winnerSeat ? SEAT_VECTORS[winnerSeat] : null;
+            const cv = SEAT_VECTORS[seat];
+            const collectDx = wv ? (wv[0] - cv[0]) * 70 : 0;
+            const collectDy = wv ? (wv[1] - cv[1]) * 70 : 0;
+            return (
+              <PlayedCardSpot key={idx} seat={seat}>
+                <PlayedCardWrapper>
+                  <PlaySlot
+                    isEmpty={false}
+                    isWinner={isWinner}
+                    isFadingOut={isFadingOut}
+                    collectDx={collectDx}
+                    collectDy={collectDy}
+                  >
+                    <TiltWrap isWinner={isWinner} style={{ transform: pc.transform }}>
+                      <CardClip>
+                        <CardComponent
+                          card={pc.card}
+                          onClick={() => {}}
+                          transform=""
+                          colors={cardColors}
+                          fillContainer
+                        />
+                      </CardClip>
+                    </TiltWrap>
+                  </PlaySlot>
+                </PlayedCardWrapper>
+              </PlayedCardSpot>
+            );
+          })}
+
+          {/* Punti della presa: appaiono solo durante la raccolta */}
+          {roundWinnerId && winnerSeat && trickPoints > 0 && (
+            <TrickPointsFloat
+              key={`pts_${gameState.roundNumber}`}
+              style={{
+                left: `calc(50% + ${SEAT_VECTORS[winnerSeat][0] * 28}%)`,
+                top: `calc(50% + ${SEAT_VECTORS[winnerSeat][1] * 28}%)`,
+              }}
+            >
+              <TrickPointsInner>
+                <b>+{trickPoints}</b>
+                <span>punti</span>
+              </TrickPointsInner>
+            </TrickPointsFloat>
+          )}
         </FeltTable>
-
-        {/* Punti della presa: appaiono solo durante la raccolta */}
-        {roundWinnerId && winnerSeat && trickPoints > 0 && (
-          <TrickPointsFloat
-            key={`pts_${gameState.roundNumber}`}
-            style={{
-              left: `calc(50% + ${SEAT_VECTORS[winnerSeat][0] * 24}%)`,
-              top: `calc(50% + ${SEAT_VECTORS[winnerSeat][1] * 20}%)`,
-            }}
-          >
-            <TrickPointsInner>
-              <b>+{trickPoints}</b>
-              <span>punti</span>
-            </TrickPointsInner>
-          </TrickPointsFloat>
-        )}
-
-        {/* Played cards on the table */}
-        {playedCards.map((pc, idx) => {
-          const seat = seatMap.get(pc.playerId);
-          if (!seat) return null;
-          const isWinner = roundWinnerId === pc.playerId;
-          // Direzione della raccolta: dal posto della carta verso il vincitore
-          const wv = winnerSeat ? SEAT_VECTORS[winnerSeat] : null;
-          const cv = SEAT_VECTORS[seat];
-          const collectDx = wv ? (wv[0] - cv[0]) * 70 : 0;
-          const collectDy = wv ? (wv[1] - cv[1]) * 70 : 0;
-          return (
-            <PlayedCardSpot key={idx} seat={seat}>
-              <PlayedCardWrapper>
-                <PlaySlot
-                  isEmpty={false}
-                  isWinner={isWinner}
-                  isFadingOut={isFadingOut}
-                  collectDx={collectDx}
-                  collectDy={collectDy}
-                >
-                  <TiltWrap isWinner={isWinner} style={{ transform: pc.transform }}>
-                    <CardClip>
-                      <CardComponent
-                        card={pc.card}
-                        onClick={() => {}}
-                        transform=""
-                        colors={cardColors}
-                        fillContainer
-                      />
-                    </CardClip>
-                  </TiltWrap>
-                </PlaySlot>
-              </PlayedCardWrapper>
-            </PlayedCardSpot>
-          );
-        })}
 
         {/* Player Seats — dai posti della partita, non dai connessi:
             chi si disconnette resta visibile al suo posto, in grigio */}

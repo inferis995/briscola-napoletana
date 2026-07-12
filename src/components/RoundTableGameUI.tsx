@@ -873,7 +873,11 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   onQuickChat,
   quickChatMessage,
 }) => {
-  const playerHand = gameState.playerHands[currentPlayerId] || [];
+  // Rete di sicurezza: mai renderizzare due volte la stessa carta, anche se
+  // arrivasse uno stato transitorio in conflitto durante un lag
+  const playerHand = (gameState.playerHands[currentPlayerId] || []).filter(
+    (card, idx, arr) => arr.findIndex(c => c.id === card.id) === idx
+  );
   const teams = gameState.teams;
   const isTeamMode = !!teams;
   const myTeam = teams ? teams[currentPlayerId] : null;

@@ -148,6 +148,16 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   useEffect(() => { setGameStateRef.current = setGameState; }, [setGameState]);
   useEffect(() => { playersRef.current = players; }, [players]);
 
+  // Scrittura di stato lato host: aggiorna gameStateRef in modo SINCRONO.
+  // Prima il ref si aggiornava solo dopo il re-render: sotto lag due azioni
+  // ravvicinate (es. giocata sul filo del timer + auto-gioco allo scadere)
+  // partivano dallo stesso stato vecchio creando due versioni in conflitto
+  // della partita (carte che riappaiono / doppioni momentanei in mano).
+  const commitGameState = useCallback((state: GameState) => {
+    gameStateRef.current = state;
+    setGameStateRef.current(state, true);
+  }, []);
+
   // Risolve i PlayerState dei posti nell'ordine dei posti (chiavi di playerHands).
   // Ritorna null se qualche posto non è risolvibile.
   const resolveSeatPlayers = useCallback((state: GameState): PlayerState[] | null => {
@@ -220,7 +230,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       logic.loadState(currentState);
       const newState = logic.playCard(caller.id, data.cardId);
       if (!newState) return;
-      setGameStateRef.current(stampTurnDeadline(newState), true);
+      commitGameState(stampTurnDeadline(newState));
       return "ok";
     });
 
@@ -232,7 +242,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       logic.loadState(currentState);
       const newState = logic.swapWithTrump(caller.id, data.cardId);
       if (!newState) return;
-      setGameStateRef.current(newState, true);
+      commitGameState(newState);
       return "ok";
     });
 
@@ -284,7 +294,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         }
       }
 
-      setGameStateRef.current(stampTurnDeadline(newState), true);
+      commitGameState(stampTurnDeadline(newState));
       return 'ok';
     });
 
@@ -315,7 +325,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         newState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPid, newState.teams, allPlayers);
       }
 
-      setGameStateRef.current(stampTurnDeadline(stampSeatOwners(newState, allPlayers)), true);
+      commitGameState(stampTurnDeadline(stampSeatOwners(newState, allPlayers)));
       return "ok";
     });
 
@@ -324,7 +334,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const logic = gameLogicRef.current;
       if (!logic) return;
       const newState = logic.startSecondSmazzata();
-      setGameStateRef.current(stampTurnDeadline(stampSeatOwners(newState, logic.getPlayers())), true);
+      commitGameState(stampTurnDeadline(stampSeatOwners(newState, logic.getPlayers())));
       return "ok";
     });
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -340,7 +350,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       if (!latestState || latestState.phase !== 'round_complete' || !logic) return;
       logic.loadState(latestState);
       const resolvedState = logic.resolveRound();
-      setGameStateRef.current(stampTurnDeadline(resolvedState), true);
+      commitGameState(stampTurnDeadline(resolvedState));
     }, 1600);
     return () => clearTimeout(timer);
     // Dipende dall'identità dello stato: così un reclaim durante
@@ -368,7 +378,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       logic.loadState(latestState);
       const newState = logic.playCard(pid, card.id);
       if (!newState) return;
-      setGameStateRef.current(stampTurnDeadline(newState), true);
+      commitGameState(stampTurnDeadline(newState));
     }, Math.max(0, deadline - Date.now()) + 200);
     return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -426,7 +436,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const maxScore = Math.max(...Object.values(scores));
       const topPlayers = Object.keys(scores).filter(pid => scores[pid] === maxScore);
 
-      setGameStateRef.current({
+      commitGameState({
         ...latest,
         phase: 'game_over',
         endedEarly: true,
@@ -435,7 +445,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         ...(teamScores ? { teamScores, winnerTeam } : {}),
         playedCards: [],
         turnDeadline: null,
-      }, true);
+      });
       showNotification('Partita terminata: un giocatore non è rientrato', 'ERROR' as any);
     }, RECONNECT_GRACE_MS);
     return () => clearTimeout(timer);
@@ -529,12 +539,12 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         );
       }
 
-      setGameState(stampTurnDeadline(stampSeatOwners(initialState, gamePlayers)), true);
+      commitGameState(stampTurnDeadline(stampSeatOwners(initialState, gamePlayers)));
     } catch (error) {
       console.error("Failed to start game:", error);
       showNotification("Impossibile avviare la partita", "ERROR" as any);
     }
-  }, [amHost, players, setGameState, showNotification, activeMode, modeConfig]);
+  }, [amHost, players, showNotification, activeMode, modeConfig, commitGameState]);
 
   // Handle player join/quit
   useEffect(() => {
@@ -560,7 +570,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const timer = setTimeout(() => {
         const latestState = gameStateRef.current;
         if (!latestState || latestState.phase !== 'revealing_hands') return;
-        setGameStateRef.current(stampTurnDeadline({ ...latestState, phase: 'playing' }), true);
+        commitGameState(stampTurnDeadline({ ...latestState, phase: 'playing' }));
       }, 5000);
       return () => clearTimeout(timer);
     }

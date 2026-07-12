@@ -113,7 +113,7 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
     const turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPlayer.id, teams, this.players);
 
     this.state = {
-      phase: 'revealing_hands',
+      phase: 'playing',
       deck: newDeck,
       trumpCard,
       trumpSuit: trumpCard.suit,

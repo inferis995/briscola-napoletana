@@ -130,6 +130,7 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       teams,
       turnOrder,
       smazzataNumber: 1,
+      lastHandRevealDone: false,
     };
 
     return this.getState();
@@ -331,9 +332,14 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       };
     } else {
       const winnerIndex = this.players.findIndex(p => p.id === winnerId);
+
+      // ULTIMA MANO: when deck is empty and trump is taken, teammates reveal hands
+      const isLastHand = newDeck.length === 0 && trumpCard === null;
+      const shouldReveal = isLastHand && !this.state.lastHandRevealDone;
+
       this.state = {
         ...this.state,
-        phase: 'playing',
+        phase: shouldReveal ? 'revealing_hands' : 'playing',
         deck: newDeck,
         trumpCard,
         playerHands: newHands,
@@ -344,6 +350,7 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
         roundWinnerId: null,
         roundHistory: [...this.state.roundHistory, historyEntry],
         turnOrder: newTurnOrder,
+        lastHandRevealDone: shouldReveal ? true : this.state.lastHandRevealDone,
       };
     }
 

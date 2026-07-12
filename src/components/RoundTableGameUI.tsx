@@ -210,16 +210,15 @@ const FeltTable = styled.div<{ $theme: TableTheme }>`
   }
 `;
 
-// ===== TALLONE + BRISCOLA: in basso a sinistra sul feltro =====
-// Ancorato al FELTRO (non all'area di gioco) così resta sempre dentro il
-// tavolo su ogni schermo. Il centro rimane libero per le carte giocate;
-// se una carta sfiora il tallone, il tallone resta sopra (z-index) e il
-// contatore non viene mai coperto.
+// ===== TALLONE + BRISCOLA: al centro del feltro =====
+// Ancorato al FELTRO così resta sempre dentro il tavolo su ogni schermo.
+// Sta SOPRA le carte giocate (z-index): una carta lanciata vicino scivola
+// sotto il bordo del tallone e il contatore non viene mai coperto.
 const CenterPile = styled.div`
   position: absolute;
-  left: 22%;
-  top: 70%;
-  transform: translate(-50%, -50%) rotate(-4deg);
+  left: 50%;
+  top: 50%;
+  transform: translate(-50%, -50%) rotate(-3deg);
   width: 150px;
   height: 92px;
   z-index: 6;
@@ -227,8 +226,6 @@ const CenterPile = styled.div`
   @media (max-width: 768px) {
     width: 104px;
     height: 64px;
-    left: 21%;
-    top: 72%;
   }
 `;
 

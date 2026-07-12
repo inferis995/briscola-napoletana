@@ -94,6 +94,11 @@ const TopBar = styled.div`
   border-bottom: 1px solid rgba(212,160,23,0.12);
   flex-wrap: nowrap;
   overflow: hidden;
+
+  /* Telefono in orizzontale: barra sottile per dare spazio al tavolo */
+  @media (max-height: 520px) {
+    padding: 3px 12px;
+  }
 `;
 
 const TopBarTitle = styled.div`
@@ -191,6 +196,7 @@ const FeltTable = styled.div<{ $theme: TableTheme }>`
   width: min(92%, 720px);
   height: min(72%, 480px);
   background:
+    url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='140' height='140'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='2'/%3E%3CfeColorMatrix type='saturate' values='0'/%3E%3CfeComponentTransfer%3E%3CfeFuncA type='linear' slope='0.05'/%3E%3C/feComponentTransfer%3E%3C/filter%3E%3Crect width='140' height='140' filter='url(%23n)'/%3E%3C/svg%3E") repeat,
     radial-gradient(ellipse at 38% 28%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
     radial-gradient(ellipse at center, ${props => props.$theme.feltLight} 0%, ${props => props.$theme.feltMid} 48%, ${props => props.$theme.feltDark} 82%, ${props => props.$theme.feltEdge} 100%);
   border-radius: 50%;
@@ -200,13 +206,25 @@ const FeltTable = styled.div<{ $theme: TableTheme }>`
     inset 0 2px 5px rgba(255, 255, 255, 0.09);
   z-index: 1;
 
-  /* Cornice in legno con luce e profondità */
+  /* Cornice in legno: venature + luce e profondità */
   &::before {
     content: '';
     position: absolute;
     inset: -14px;
     border-radius: 50%;
-    background: linear-gradient(145deg, #5a3d1e 0%, #33200c 40%, #45290f 65%, #1e1206 100%);
+    background:
+      repeating-linear-gradient(
+        100deg,
+        rgba(255, 255, 255, 0.045) 0px,
+        rgba(255, 255, 255, 0.045) 2px,
+        transparent 2px,
+        transparent 7px,
+        rgba(0, 0, 0, 0.06) 7px,
+        rgba(0, 0, 0, 0.06) 9px,
+        transparent 9px,
+        transparent 15px
+      ),
+      linear-gradient(145deg, #5a3d1e 0%, #33200c 40%, #45290f 65%, #1e1206 100%);
     box-shadow:
       0 18px 60px rgba(0, 0, 0, 0.8),
       inset 0 2px 3px rgba(255, 255, 255, 0.18),
@@ -233,6 +251,16 @@ const FeltTable = styled.div<{ $theme: TableTheme }>`
       inset: -9px;
     }
   }
+
+  /* Telefono in orizzontale: il tavolo sfrutta l'altezza ridotta */
+  @media (max-height: 520px) {
+    width: min(72%, 560px);
+    height: 76%;
+
+    &::before {
+      inset: -8px;
+    }
+  }
 `;
 
 // ===== TALLONE + BRISCOLA: al centro del feltro =====
@@ -251,6 +279,10 @@ const CenterPile = styled.div`
   @media (max-width: 768px) {
     width: 104px;
     height: 64px;
+  }
+
+  @media (max-height: 520px) {
+    transform: translate(-50%, -50%) rotate(-3deg) scale(0.82);
   }
 `;
 
@@ -480,6 +512,13 @@ const SeatAvatar = styled.div<{ isActive: boolean; teamColor?: string }>`
     height: 56px;
     font-size: 28px;
   }
+
+  @media (max-height: 520px) {
+    width: 38px;
+    height: 38px;
+    font-size: 19px;
+    border-width: 2px;
+  }
 `;
 
 const SeatName = styled.div`
@@ -500,6 +539,12 @@ const SeatName = styled.div`
     font-size: 13px;
     max-width: 130px;
     padding: 3px 12px;
+  }
+
+  @media (max-height: 520px) {
+    font-size: 10px;
+    padding: 1px 8px;
+    max-width: 90px;
   }
 `;
 
@@ -568,6 +613,10 @@ const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: 
 
   @media (min-width: 769px) {
     width: 80px;
+  }
+
+  @media (max-height: 520px) {
+    width: 52px;
   }
 
   /* Raccolta: le carte scivolano verso il vincitore e svaniscono */
@@ -682,7 +731,7 @@ const QuickChatToggle = styled.button`
 // ===== HAND DOCK (bottom - your cards) =====
 const HandDock = styled.div`
   display: flex;
-  gap: 8px;
+  gap: 10px;
   justify-content: center;
   align-items: flex-end;
   padding: 10px 8px max(12px, env(safe-area-inset-bottom, 12px));
@@ -693,6 +742,28 @@ const HandDock = styled.div`
   @media (min-width: 769px) {
     gap: 14px;
     padding: 16px 12px max(16px, env(safe-area-inset-bottom, 16px));
+  }
+
+  /* Telefono in orizzontale: dock compatto per lasciare spazio al tavolo */
+  @media (max-height: 520px) {
+    gap: 8px;
+    padding: 4px 8px max(6px, env(safe-area-inset-bottom, 6px));
+  }
+`;
+
+// Dimensioni della carta in mano sotto il nostro controllo diretto
+// (CardComponent con fillContainer riempie questo box). Più grandi su
+// mobile in verticale; compatte quando il telefono è in orizzontale.
+const HandCardBox = styled.div`
+  width: 96px;
+  aspect-ratio: 0.65;
+
+  @media (max-width: 768px) {
+    width: 82px;
+  }
+
+  @media (max-height: 520px) {
+    width: 60px;
   }
 `;
 
@@ -742,6 +813,11 @@ const TurnHint = styled.div<{ mine: boolean }>`
   padding: 4px 0 0;
   z-index: 50;
   animation: ${handEntrance} 250ms ease-out;
+
+  @media (max-height: 520px) {
+    font-size: 9px;
+    padding: 1px 0 0;
+  }
 `;
 
 // ===== SCELTA COLORE TAVOLO =====
@@ -1375,13 +1451,15 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
                   isPlayable={isCurrentPlayerTurn}
                   onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
                 >
-                  <CardComponent
-                    card={card}
-                    onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
-                    transform=""
-                    colors={cardColors}
-                    size="small"
-                  />
+                  <HandCardBox>
+                    <CardComponent
+                      card={card}
+                      onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
+                      transform=""
+                      colors={cardColors}
+                      fillContainer
+                    />
+                  </HandCardBox>
                 </CardLift>
               </FanWrap>
             </HandCardWrapper>

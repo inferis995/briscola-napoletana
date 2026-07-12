@@ -65,11 +65,14 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       p => teams[p.id] === otherTeamNum
     );
 
+    // Anti-orario: dal basso vai a DESTRA, poi sopra, poi sinistra
+    // assignSeats: opponents[0]=destra, opponents[1]=sinistra
+    // Quindi: startPlayer → otherTeam[0](destra) → teammate(sopra) → otherTeam[1](sinistra)
     return [
       startPlayerId,
-      otherTeamPlayers[1]?.id,
-      sameTeamPlayers[0]?.id,
       otherTeamPlayers[0]?.id,
+      sameTeamPlayers[0]?.id,
+      otherTeamPlayers[1]?.id,
     ].filter(Boolean) as string[];
   }
 

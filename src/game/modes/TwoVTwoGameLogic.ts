@@ -117,21 +117,35 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       stacks[player.id] = [];
     });
 
-    const teams = this.getTeamsFromPlayers();
+    // Team e ciclo di seduta: se la partita li ha GIÀ (seconda smazzata,
+    // rigioca), si riusano così come sono. MAI ricalcolarli dallo stato
+    // 'team' dei giocatori a partita avviata: dopo una riconnessione quello
+    // stato è perso e il ricalcolo invertirebbe squadre e senso del giro.
+    const currentIds = this.players.map(p => p.id);
+    const prevTeams = this.state.teams;
+    const teams = (prevTeams && currentIds.every(id => prevTeams[id] === 1 || prevTeams[id] === 2))
+      ? { ...prevTeams }
+      : this.getTeamsFromPlayers();
 
-    // Build the FIXED seat cycle: A1 → B1 → A2 → B2 (counter-clockwise)
-    // This never changes during the game — only the starting point rotates
-    const team1Players = this.players.filter(p => teams[p.id] === 1);
-    const team2Players = this.players.filter(p => teams[p.id] === 2);
-    const seatCycle = [
-      team1Players[0]?.id,
-      team2Players[0]?.id,
-      team1Players[1]?.id,
-      team2Players[1]?.id,
-    ].filter(Boolean) as string[];
+    const prevCycle = this.state.seatCycle;
+    let seatCycle: string[];
+    if (prevCycle && prevCycle.length === 4 && currentIds.every(id => prevCycle.includes(id))) {
+      seatCycle = [...prevCycle];
+    } else {
+      // Ciclo FISSO stabilito una volta sola: A1 → B1 → A2 → B2 (antiorario).
+      // Da qui in poi ruota soltanto il punto di partenza, mai la direzione.
+      const team1Players = this.players.filter(p => teams[p.id] === 1);
+      const team2Players = this.players.filter(p => teams[p.id] === 2);
+      seatCycle = [
+        team1Players[0]?.id,
+        team2Players[0]?.id,
+        team1Players[1]?.id,
+        team2Players[1]?.id,
+      ].filter(Boolean) as string[];
+    }
 
     // Build initial turn order from the seat cycle
-    const startPlayer = team1Players[0] || this.players[0];
+    const startPlayer = this.players.find(p => p.id === seatCycle[0]) || this.players[0];
     const turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPlayer.id, teams, this.players, seatCycle);
 
     this.state = {

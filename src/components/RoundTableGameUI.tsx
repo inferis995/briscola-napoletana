@@ -898,14 +898,31 @@ const PlayAgainButton = styled.button`
 const assignSeats = (
   seatIds: string[],
   currentPlayerId: string,
-  teams?: { [id: string]: number }
+  teams?: { [id: string]: number },
+  seatCycle?: string[]
 ): Map<string, SeatPosition> => {
   const seats = new Map<string, SeatPosition>();
   const n = seatIds.length;
   const myIdx = seatIds.indexOf(currentPlayerId);
   if (myIdx === -1) return seats;
 
-  // 2v2: compagno sempre di fronte, avversari ai lati
+  // 2v2: posti dal ciclo di seduta FISSO condiviso nello stato — lo stesso
+  // che governa i turni. Ruotato con me in basso: chi gioca dopo di me è
+  // SEMPRE alla mia destra, il compagno di fronte, e il senso del giro è
+  // identico sugli schermi di tutti e quattro, per tutta la partita.
+  if (n === 4 && seatCycle && seatCycle.length === 4 && seatCycle.every(id => seatIds.includes(id))) {
+    const myCycleIdx = seatCycle.indexOf(currentPlayerId);
+    if (myCycleIdx !== -1) {
+      const rotated = [...seatCycle.slice(myCycleIdx), ...seatCycle.slice(0, myCycleIdx)];
+      seats.set(rotated[0], 'bottom');
+      seats.set(rotated[1], 'right');
+      seats.set(rotated[2], 'top');
+      seats.set(rotated[3], 'left');
+      return seats;
+    }
+  }
+
+  // Fallback 2v2 senza ciclo nello stato: compagno di fronte, avversari ai lati
   if (n === 4 && teams && teams[currentPlayerId]) {
     const myTeam = teams[currentPlayerId];
     const teammate = seatIds.find(id => id !== currentPlayerId && teams[id] === myTeam);
@@ -1057,7 +1074,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   const teammateHand = teammate ? (gameState.playerHands[teammate.id] || []) : [];
 
   // Posti fissi per tutta la partita
-  const seatMap = assignSeats(seatIds, currentPlayerId, teams);
+  const seatMap = assignSeats(seatIds, currentPlayerId, teams, gameState.seatCycle);
   const playedCards = gameState.playedCards;
   const roundWinnerId = gameState.phase === 'round_complete' ? gameState.roundWinnerId : null;
   const winnerSeat = roundWinnerId ? seatMap.get(roundWinnerId) : undefined;

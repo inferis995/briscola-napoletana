@@ -117,6 +117,10 @@ export const remapPlayerId = (state: GameState, oldId: string, newId: string): G
     gameWinnerId: mapId(state.gameWinnerId),
     lastSwapPlayerId: mapId(state.lastSwapPlayerId),
     turnOrder: state.turnOrder?.map(id => (id === oldId ? newId : id)),
+    // Il ciclo di seduta DEVE seguire il nuovo id: se restasse il vecchio,
+    // dopo una riconnessione il giro si invertirebbe (indexOf fallirebbe
+    // e il turn order ripiegherebbe sull'ordine ricalcolato da zero)
+    seatCycle: state.seatCycle?.map(id => (id === oldId ? newId : id)),
   };
 };
 

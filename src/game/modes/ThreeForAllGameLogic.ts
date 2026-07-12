@@ -167,7 +167,8 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
     if (newDeck.length > 0 || trumpCard) {
       const winnerIndex = this.players.findIndex(p => p.id === winnerId);
       for (let i = 0; i < this.players.length; i++) {
-        const playerIndex = (winnerIndex + i) % this.players.length;
+        // Pesca in senso antiorario, come il giro di gioco
+        const playerIndex = (winnerIndex - i + this.players.length) % this.players.length;
         const pid = this.players[playerIndex].id;
         while (newHands[pid].length < this.config.cardsPerPlayer) {
           if (newDeck.length > 0) {

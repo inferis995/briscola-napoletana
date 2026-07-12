@@ -89,6 +89,7 @@ const stampSeatOwners = (state: GameState, seatPlayers: PlayerState[]): GameStat
     seatPlayers.map(p => [p.id, {
       clientId: (p.getState?.('clientId') as string) || '',
       name: getPlayerName(p),
+      emoji: getPlayerEmoji(p),
     } as SeatOwner])
   ),
 });
@@ -260,7 +261,11 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         ...newState,
         seatOwners: {
           ...newState.seatOwners,
-          [caller.id]: { clientId: data.clientId, name: getPlayerName(callerPlayer) },
+          [caller.id]: {
+            clientId: data.clientId,
+            name: getPlayerName(callerPlayer),
+            emoji: getPlayerEmoji(callerPlayer),
+          },
         },
       };
 
@@ -489,16 +494,25 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       showNotification("Servono più giocatori per iniziare!", "WARNING" as any);
       return;
     }
-    if (players.length > (modeConfig?.maxPlayers ?? 4)) {
-      showNotification("Troppi giocatori per questa modalità!", "ERROR" as any);
-      return;
-    }
     try {
-      const logic = createGameLogic(players, activeMode || GameMode.THREE_FOR_ALL);
+      // Robustezza: mai più giocatori del limite della modalità. Gli extra
+      // (es. fantasmi di riconnessione) restano fuori dai posti al tavolo.
+      const gamePlayers = players.slice(0, modeConfig?.maxPlayers ?? players.length);
+      const logic = createGameLogic(gamePlayers, activeMode || GameMode.THREE_FOR_ALL);
       gameLogicRef.current = logic;
-      players.forEach(p => { seatPlayerMapRef.current[p.id] = p; });
+      gamePlayers.forEach(p => { seatPlayerMapRef.current[p.id] = p; });
       const initialState = logic.initializeGame();
-      setGameState(stampTurnDeadline(stampSeatOwners(initialState, players)), true);
+
+      // Primo di mano casuale (come la "mano" estratta a sorte al tavolo)
+      const startIndex = Math.floor(Math.random() * gamePlayers.length);
+      initialState.currentTurnPlayerIndex = startIndex;
+      if (initialState.turnOrder && initialState.teams) {
+        initialState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(
+          gamePlayers[startIndex].id, initialState.teams, gamePlayers
+        );
+      }
+
+      setGameState(stampTurnDeadline(stampSeatOwners(initialState, gamePlayers)), true);
     } catch (error) {
       console.error("Failed to start game:", error);
       showNotification("Impossibile avviare la partita", "ERROR" as any);
@@ -596,12 +610,15 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   // ==================== LOBBY VIEW ====================
   if (!gameState) {
     const is2v2 = activeMode === GameMode.TWO_VS_TWO;
+    // Solo i primi N giocatori occupano un posto: gli extra restano in coda
+    const seatedPlayers = players.slice(0, maxPlayers);
+    const extraPlayers = players.slice(maxPlayers);
     const canStart = (() => {
-      if (players.length < (modeConfig?.minPlayers ?? 2)) return false;
+      if (seatedPlayers.length < (modeConfig?.minPlayers ?? 2)) return false;
       if (is2v2) {
         // Verify 2 per team
         let t1 = 0, t2 = 0;
-        players.forEach(p => {
+        seatedPlayers.forEach(p => {
           const t = getPlayerTeam(p);
           if (t === 1) t1++;
           else if (t === 2) t2++;
@@ -610,7 +627,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       }
       return true;
     })();
-    const needed = maxPlayers - players.length;
+    const needed = maxPlayers - seatedPlayers.length;
 
     return (
       <LobbyWrapper>
@@ -649,8 +666,8 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
           </RoomCodeCard>
 
           <PlayersSection>
-            <PlayersHeader>Giocatori ({players.length}/{maxPlayers})</PlayersHeader>
-            {players.map((player) => {
+            <PlayersHeader>Giocatori ({seatedPlayers.length}/{maxPlayers})</PlayersHeader>
+            {seatedPlayers.map((player) => {
               const name = getPlayerName(player);
               const emoji = getPlayerEmoji(player);
               const isYou = player.id === currentPlayer?.id;
@@ -696,7 +713,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
                 </PlayerRow>
               );
             })}
-            {Array.from({ length: Math.max(0, maxPlayers - players.length) }).map((_, i) => (
+            {Array.from({ length: Math.max(0, maxPlayers - seatedPlayers.length) }).map((_, i) => (
               <PlayerRow key={`empty-${i}`} style={{ opacity: 0.4 }}>
                 <WaitingDot>?</WaitingDot>
                 <PlayerNameText style={{ color: DESIGN.colors.text.tertiary }}>
@@ -704,6 +721,14 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
                 </PlayerNameText>
               </PlayerRow>
             ))}
+            {extraPlayers.length > 0 && (
+              <PlayerRow style={{ opacity: 0.6 }}>
+                <WaitingDot>!</WaitingDot>
+                <PlayerNameText style={{ color: DESIGN.colors.accents.pink, fontSize: '13px' }}>
+                  Stanza piena: {extraPlayers.map(p => getPlayerName(p)).join(', ')} non parteciper{extraPlayers.length > 1 ? 'anno' : 'à'}
+                </PlayerNameText>
+              </PlayerRow>
+            )}
           </PlayersSection>
 
           {amHost ? (

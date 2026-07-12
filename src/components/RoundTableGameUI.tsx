@@ -6,7 +6,7 @@ import { CardComponent } from '@/components/Card';
 import { MatchHistoryButton } from '@/components/MatchHistory';
 import { RulesPopup, RulesIcon } from '@/components/RulesPopup';
 import { QuickChatPopup, QuickChatBubble, QuickChatIcon } from '@/components/QuickChat';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react';
 import packageJson from '../../package.json';
 import {
   DESIGN,
@@ -15,20 +15,27 @@ import {
   getPlayerName,
   getPlayerEmoji,
   playCardFlipSound,
+  playableGlow,
   TEAM_COLORS,
 } from '@/components/shared/gameDesign';
 import { useTurnCountdown, TimerChip } from '@/components/shared/TurnTimer';
+import { useGameFeedback } from '@/components/shared/useGameFeedback';
+import { useCountUp } from '@/components/shared/useCountUp';
+import { isSoundEnabled, setSoundEnabled } from '@/components/shared/soundEffects';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
 
 // ===== TYPES =====
 type SeatPosition = 'bottom' | 'top' | 'left' | 'right' | 'topLeft' | 'topRight';
 
-interface PlayerSeatInfo {
-  player: any;
-  seat: SeatPosition;
-  isActive: boolean;
-  isYou: boolean;
-}
+// Vettori direzionali dei posti: usati per animare la presa verso il vincitore
+const SEAT_VECTORS: Record<SeatPosition, [number, number]> = {
+  bottom: [0, 1],
+  top: [0, -1],
+  left: [-1, 0],
+  right: [1, 0],
+  topLeft: [-0.8, -1],
+  topRight: [0.8, -1],
+};
 
 // ===== ANIMATIONS =====
 const pulseGlow = keyframes`
@@ -423,14 +430,44 @@ const PlayedCardWrapper = styled.div`
   animation: ${cardSlideIn} 300ms ease-out;
 `;
 
-const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: boolean }>`
+const winnerRing = keyframes`
+  0% { opacity: 0; transform: scale(1.15); }
+  100% { opacity: 1; transform: scale(1); }
+`;
+
+const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: boolean; collectDx?: number; collectDy?: number }>`
+  position: relative;
   width: 60px;
   height: 84px;
+  border-radius: 6px;
+  filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.45));
 
   @media (min-width: 769px) {
     width: 80px;
     height: 112px;
   }
+
+  /* Anello dorato sulla carta che vince la presa */
+  ${props => props.isWinner && css`
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -4px;
+      border: 2.5px solid #d4a017;
+      border-radius: 9px;
+      box-shadow: 0 0 18px rgba(212, 160, 23, 0.55), inset 0 0 10px rgba(212, 160, 23, 0.2);
+      pointer-events: none;
+      animation: ${winnerRing} 400ms ease-out;
+      z-index: 10;
+    }
+  `}
+
+  /* Raccolta: le carte scivolano verso il vincitore e svaniscono */
+  ${props => props.isFadingOut && css`
+    transform: translate(${props.collectDx ?? 0}px, ${props.collectDy ?? 0}px) scale(0.45);
+    opacity: 0;
+    transition: transform 450ms cubic-bezier(0.55, 0, 0.8, 0.4), opacity 420ms ease-in;
+  `}
 `;
 
 // ===== QUICK CHAT BAR (always visible) =====
@@ -520,14 +557,33 @@ const HandDock = styled.div`
   }
 `;
 
-const HandCardWrapper = styled.div<{ isPlayable: boolean; entranceDelay: number }>`
+const HandCardWrapper = styled.div<{ entranceDelay: number }>`
   flex-shrink: 0;
+  animation: ${handEntrance} 240ms ease-out ${props => props.entranceDelay}ms both;
+`;
+
+// Ventaglio: rotazione/arco separati dall'entrance animation
+const FanWrap = styled.div`
+  transform-origin: 50% 135%;
+  transition: transform 200ms ease-out;
+`;
+
+const CardLift = styled.div<{ isPlayable: boolean }>`
   cursor: ${props => props.isPlayable ? 'pointer' : 'default'};
-  opacity: ${props => props.isPlayable ? 1 : 0.5};
-  transition: transform 200ms ease;
+  opacity: ${props => props.isPlayable ? 1 : 0.55};
+  transition: transform 200ms ease, opacity 200ms ease;
+  border-radius: 8px;
+
+  ${props => props.isPlayable && css`
+    animation: ${playableGlow} 2.2s ease-in-out infinite;
+  `}
 
   &:hover {
     ${props => props.isPlayable && `transform: translateY(-10px);`}
+  }
+
+  &:active {
+    ${props => props.isPlayable && `transform: translateY(-12px) scale(1.04);`}
   }
 
   @media (min-width: 769px) {
@@ -535,6 +591,53 @@ const HandCardWrapper = styled.div<{ isPlayable: boolean; entranceDelay: number 
       ${props => props.isPlayable && `transform: translateY(-14px);`}
     }
   }
+`;
+
+const TurnHint = styled.div<{ mine: boolean }>`
+  text-align: center;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: ${props => props.mine ? '#d4a017' : DESIGN.colors.text.tertiary};
+  padding: 4px 0 0;
+  z-index: 50;
+  animation: ${handEntrance} 250ms ease-out;
+`;
+
+const PointsBadge = styled.div`
+  display: inline-flex;
+  align-items: baseline;
+  gap: 5px;
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  color: ${DESIGN.colors.text.tertiary};
+  background: rgba(19, 33, 19, 0.8);
+  padding: 4px 10px;
+  border-radius: 8px;
+  border: 1px solid rgba(212, 160, 23, 0.1);
+  white-space: nowrap;
+
+  b {
+    color: #d4a017;
+    font-size: 14px;
+    line-height: 1;
+    font-variant-numeric: tabular-nums;
+  }
+`;
+
+const ReconnectingTag = styled.span`
+  font-size: 8px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  color: ${DESIGN.colors.accents.pink};
+  background: rgba(230, 57, 70, 0.14);
+  border: 1px solid rgba(230, 57, 70, 0.4);
+  padding: 1px 6px;
+  border-radius: 3px;
 `;
 
 // ===== GAME OVER =====
@@ -617,30 +720,38 @@ const PlayAgainButton = styled.button`
   &:active { transform: scale(0.97); }
 `;
 
-// ===== HELPER: assign seats based on actual turn order =====
-const assignSeats = (players: any[], currentPlayerId: string, turnOrder?: string[], teams?: { [id: string]: number }): Map<string, SeatPosition> => {
+// ===== HELPER: posti FISSI per tutta la partita =====
+// Derivati dall'ordine dei posti (chiavi di playerHands), MAI dal turnOrder:
+// il turnOrder cambia a ogni presa (il vincitore guida) e farebbe "saltare"
+// i giocatori da una sedia all'altra. La sedia si assegna una volta sola.
+const assignSeats = (
+  seatIds: string[],
+  currentPlayerId: string,
+  teams?: { [id: string]: number }
+): Map<string, SeatPosition> => {
   const seats = new Map<string, SeatPosition>();
-  const n = players.length;
+  const n = seatIds.length;
+  const myIdx = seatIds.indexOf(currentPlayerId);
+  if (myIdx === -1) return seats;
 
-  // Build the effective turn order array
-  let order: string[];
-  if (turnOrder && turnOrder.length === n) {
-    order = [...turnOrder];
-  } else {
-    // For non-turnOrder modes, compute counter-clockwise order
-    const myIndex = players.findIndex(p => p.id === currentPlayerId);
-    order = [];
-    for (let i = 0; i < n; i++) {
-      order.push(players[(myIndex - i + n) % n].id);
-    }
+  // 2v2: compagno sempre di fronte, avversari ai lati
+  if (n === 4 && teams && teams[currentPlayerId]) {
+    const myTeam = teams[currentPlayerId];
+    const teammate = seatIds.find(id => id !== currentPlayerId && teams[id] === myTeam);
+    const opponents = seatIds.filter(id => teams[id] !== myTeam);
+    seats.set(currentPlayerId, 'bottom');
+    if (teammate) seats.set(teammate, 'top');
+    if (opponents[0]) seats.set(opponents[0], 'right');
+    if (opponents[1]) seats.set(opponents[1], 'left');
+    return seats;
   }
 
-  // Rotate the order so "me" is first
-  const myPos = order.indexOf(currentPlayerId);
-  if (myPos === -1) return seats;
-  const rotated = [...order.slice(myPos), ...order.slice(0, myPos)];
+  // Giro antiorario: chi gioca dopo di me siede alla mia destra
+  const rotated: string[] = [];
+  for (let i = 0; i < n; i++) {
+    rotated.push(seatIds[(myIdx - i + n) % n]);
+  }
 
-  // Assign seats: me=bottom, next=right, across=top, prev=left
   seats.set(rotated[0], 'bottom');
   if (n === 2) {
     seats.set(rotated[1], 'top');
@@ -669,11 +780,19 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   quickChatMessage,
 }) => {
   const playerHand = gameState.playerHands[currentPlayerId] || [];
-  const currentTurnIndex = gameState.currentTurnPlayerIndex;
-  const isCurrentPlayerTurn = gameState.phase === 'playing' && currentTurnIndex === players.findIndex(p => p.id === currentPlayerId);
   const teams = gameState.teams;
   const isTeamMode = !!teams;
   const myTeam = teams ? teams[currentPlayerId] : null;
+
+  // Il turno si determina dall'ordine dei posti (chiavi di playerHands), non
+  // dall'ordine della lista connessi: dopo una riconnessione i due divergono
+  const seatIds = Object.keys(gameState.playerHands);
+  const activeTurnPlayerId = gameState.phase === 'playing'
+    ? (gameState.turnOrder
+        ? gameState.turnOrder[gameState.playedCards.length]
+        : seatIds[gameState.currentTurnPlayerIndex]) || null
+    : null;
+  const isCurrentPlayerTurn = activeTurnPlayerId === currentPlayerId;
 
   const [showRules, setShowRules] = useState(false);
   const [showQuickChat, setShowQuickChat] = useState(false);
@@ -683,8 +802,39 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   const [showChatBar, setShowChatBar] = useState(false);
 
   // Turn timer
-  const isMyTurn = gameState.phase === 'playing' && currentTurnIndex === players.findIndex(p => p.id === currentPlayerId);
-  const secondsLeft = useTurnCountdown(gameState.turnDeadline, gameState.phase === 'playing', isMyTurn);
+  const secondsLeft = useTurnCountdown(gameState.turnDeadline, gameState.phase === 'playing', isCurrentPlayerTurn);
+
+  // Feedback audio/tattile: tuo turno, presa vinta/persa, vittoria/sconfitta
+  useGameFeedback(gameState, currentPlayerId, isCurrentPlayerTurn);
+
+  // Toggle audio (inizializzato in effect per evitare mismatch SSR)
+  const [soundOn, setSoundOn] = useState(true);
+  useEffect(() => { setSoundOn(isSoundEnabled()); }, []);
+  const toggleSound = () => {
+    setSoundEnabled(!soundOn);
+    setSoundOn(!soundOn);
+  };
+
+  // Punti live: i tuoi (o della tua squadra in 2v2), con count-up sulla presa
+  const stackPoints = (pid: string) =>
+    (gameState.playerStacks[pid] || []).reduce((t, c) => t + c.score, 0);
+  const rawPoints = teams
+    ? seatIds.filter(pid => teams[pid] === teams[currentPlayerId]).reduce((t, pid) => t + stackPoints(pid), 0)
+    : stackPoints(currentPlayerId);
+  const livePoints = useCountUp(rawPoints);
+
+  // Nome robusto: displayName → registro posti → 'Giocatore'
+  // (mai il nickname casuale di Playroom)
+  const resolveSeatDisplay = (sid: string): { name: string; emoji: string; connected: boolean } => {
+    const player = players.find(p => p.id === sid);
+    const owner = gameState.seatOwners?.[sid];
+    if (player) {
+      const stateName = player.getState?.('displayName');
+      const name = stateName ? getPlayerName(player) : (owner?.name || 'Giocatore');
+      return { name, emoji: getPlayerEmoji(player), connected: true };
+    }
+    return { name: owner?.name || 'Giocatore', emoji: owner?.emoji || '🔌', connected: false };
+  };
 
   // Online status
   useEffect(() => {
@@ -705,11 +855,11 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     prevPlayedCountRef.current = gameState.playedCards.length;
   }, [gameState.playedCards.length]);
 
-  // Fade out animation
+  // Fade out animation (raccolta a 1.1s, dura 450ms, l'host risolve a 1.6s)
   useEffect(() => {
     if (gameState.phase === 'round_complete') {
       setIsFadingOut(false);
-      const t = setTimeout(() => setIsFadingOut(true), 1200);
+      const t = setTimeout(() => setIsFadingOut(true), 1100);
       return () => clearTimeout(t);
     } else {
       setIsFadingOut(false);
@@ -730,10 +880,11 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     : null;
   const teammateHand = teammate ? (gameState.playerHands[teammate.id] || []) : [];
 
-  // Assign seats
-  const seatMap = assignSeats(players, currentPlayerId, gameState.turnOrder, teams);
+  // Posti fissi per tutta la partita
+  const seatMap = assignSeats(seatIds, currentPlayerId, teams);
   const playedCards = gameState.playedCards;
   const roundWinnerId = gameState.phase === 'round_complete' ? gameState.roundWinnerId : null;
+  const winnerSeat = roundWinnerId ? seatMap.get(roundWinnerId) : undefined;
 
   // ===== GAME OVER =====
   if (gameState.phase === 'game_over') {
@@ -877,10 +1028,14 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           BRISCOLA<TopBarVersion>v{packageJson.version}</TopBarVersion>
         </TopBarTitle>
         <TopBarInfo>
+          <PointsBadge>{isTeamMode ? 'Squadra' : 'Punti'} <b>{livePoints}</b></PointsBadge>
           <RoundBadge>{gameState.smazzataNumber > 1 ? `S${gameState.smazzataNumber} · ` : ''}T{gameState.roundNumber}</RoundBadge>
           {secondsLeft !== null && (
             <TimerChip urgent={secondsLeft <= 5}>{secondsLeft}s</TimerChip>
           )}
+          <TopBarButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
+            {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </TopBarButton>
           <TopBarButton onClick={() => setShowRules(true)} title="Come si gioca">
             <RulesIcon />
           </TopBarButton>
@@ -922,10 +1077,21 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           const seat = seatMap.get(pc.playerId);
           if (!seat) return null;
           const isWinner = roundWinnerId === pc.playerId;
+          // Direzione della raccolta: dal posto della carta verso il vincitore
+          const wv = winnerSeat ? SEAT_VECTORS[winnerSeat] : null;
+          const cv = SEAT_VECTORS[seat];
+          const collectDx = wv ? (wv[0] - cv[0]) * 70 : 0;
+          const collectDy = wv ? (wv[1] - cv[1]) * 70 : 0;
           return (
             <PlayedCardSpot key={idx} seat={seat}>
               <PlayedCardWrapper>
-                <PlaySlot isEmpty={false} isWinner={isWinner} isFadingOut={isFadingOut}>
+                <PlaySlot
+                  isEmpty={false}
+                  isWinner={isWinner}
+                  isFadingOut={isFadingOut}
+                  collectDx={collectDx}
+                  collectDy={collectDy}
+                >
                   <CardComponent
                     card={pc.card}
                     onClick={() => {}}
@@ -939,21 +1105,23 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           );
         })}
 
-        {/* Player Seats */}
-        {players.map((player, index) => {
-          const seat = seatMap.get(player.id);
+        {/* Player Seats — dai posti della partita, non dai connessi:
+            chi si disconnette resta visibile al suo posto, in grigio */}
+        {seatIds.map((sid) => {
+          const seat = seatMap.get(sid);
           if (!seat) return null;
-          const isActive = currentTurnIndex === index;
-          const isYou = player.id === currentPlayerId;
-          const playerTeam = teams ? teams[player.id] : undefined;
+          const isActive = sid === activeTurnPlayerId;
+          const isYou = sid === currentPlayerId;
+          const playerTeam = teams ? teams[sid] : undefined;
+          const { name, emoji, connected } = resolveSeatDisplay(sid);
 
           return (
-            <PlayerSeat key={player.id} seat={seat} isActive={isActive}>
+            <PlayerSeat key={sid} seat={seat} isActive={isActive} style={{ opacity: connected ? 1 : 0.55 }}>
               <SeatAvatar isActive={isActive} teamColor={playerTeam ? TEAM_COLORS[playerTeam] : undefined}>
-                {getPlayerEmoji(player)}
+                {emoji}
               </SeatAvatar>
               <SeatName>
-                {isYou ? 'Tu' : getPlayerName(player)}
+                {isYou ? 'Tu' : name}
               </SeatName>
               <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
                 {isActive && secondsLeft !== null && (
@@ -962,30 +1130,53 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
                 {isTeamMode && playerTeam && (
                   <TeamBadge team={playerTeam}>S{playerTeam}</TeamBadge>
                 )}
+                {!connected && <ReconnectingTag>riconnessione…</ReconnectingTag>}
               </div>
             </PlayerSeat>
           );
         })}
       </TableArea>
 
+      {/* Hint di turno sopra la mano */}
+      {gameState.phase === 'playing' && (
+        <TurnHint mine={isCurrentPlayerTurn}>
+          {isCurrentPlayerTurn
+            ? 'Tocca a te — gioca una carta'
+            : activeTurnPlayerId
+              ? `Turno di ${resolveSeatDisplay(activeTurnPlayerId).name}`
+              : ''}
+        </TurnHint>
+      )}
+
       {/* Hand dock at bottom */}
       <HandDock>
-        {playerHand.map((card, idx) => (
-          <HandCardWrapper
-            key={`${gameState.roundNumber}_${card.id}`}
-            isPlayable={isCurrentPlayerTurn}
-            entranceDelay={idx * 60}
-            onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
-          >
-            <CardComponent
-              card={card}
-              onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
-              transform=""
-              colors={cardColors}
-              size="small"
-            />
-          </HandCardWrapper>
-        ))}
+        {playerHand.map((card, idx) => {
+          // Ventaglio: le carte ai lati ruotano e scendono leggermente
+          const mid = (playerHand.length - 1) / 2;
+          const fanRotation = (idx - mid) * 5;
+          const fanDrop = Math.abs(idx - mid) * 5;
+          return (
+            <HandCardWrapper
+              key={`${gameState.roundNumber}_${card.id}`}
+              entranceDelay={idx * 70}
+            >
+              <FanWrap style={{ transform: `rotate(${fanRotation}deg) translateY(${fanDrop}px)` }}>
+                <CardLift
+                  isPlayable={isCurrentPlayerTurn}
+                  onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
+                >
+                  <CardComponent
+                    card={card}
+                    onClick={() => isCurrentPlayerTurn && onCardPlay(card)}
+                    transform=""
+                    colors={cardColors}
+                    size="small"
+                  />
+                </CardLift>
+              </FanWrap>
+            </HandCardWrapper>
+          );
+        })}
       </HandDock>
 
       {/* Quick chat bar - toggleable for fast typing on mobile */}

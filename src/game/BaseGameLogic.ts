@@ -32,6 +32,7 @@ export interface RoundHistoryEntry {
 export interface SeatOwner {
   clientId: string;
   name: string;
+  emoji?: string;
 }
 
 export interface GameState {

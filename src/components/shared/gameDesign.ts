@@ -129,9 +129,11 @@ export const getPlayerInitials = (playerId: string, players: PlayerState[]): str
 };
 
 export const getPlayerName = (player: PlayerState): string => {
-  // With skipLobby, name is stored in player state
+  // Con skipLobby il nome vive nello stato del giocatore. MAI ripiegare sul
+  // profilo Playroom: è un nickname casuale e appare come "nome che cambia"
+  // quando lo stato non è ancora sincronizzato (es. riconnessione).
   const displayName = player.getState?.('displayName');
-  const raw = displayName || player.getProfile()?.name || 'Player';
+  const raw = displayName || 'Giocatore';
   return raw.length > 12 ? raw.slice(0, 12) : raw;
 };
 
@@ -183,6 +185,12 @@ export const cardEntrance = keyframes`
     opacity: 1;
     transform: translateY(0);
   }
+`;
+
+// Pulsazione dorata sulle carte giocabili quando è il tuo turno
+export const playableGlow = keyframes`
+  0%, 100% { box-shadow: 0 4px 10px rgba(0,0,0,0.35), 0 0 10px rgba(212,160,23,0.15); }
+  50% { box-shadow: 0 4px 12px rgba(0,0,0,0.35), 0 0 20px rgba(212,160,23,0.45); }
 `;
 
 export const swapGlow = keyframes`

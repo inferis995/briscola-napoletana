@@ -86,39 +86,64 @@ const TopBar = styled.div`
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 10px 16px max(10px, env(safe-area-inset-top, 10px));
+  padding: 8px 10px max(8px, env(safe-area-inset-top, 8px));
   background: rgba(6,10,6,0.85);
   backdrop-filter: blur(10px);
   z-index: 100;
   flex-shrink: 0;
   border-bottom: 1px solid rgba(212,160,23,0.12);
+  flex-wrap: nowrap;
+  overflow: hidden;
 `;
 
 const TopBarTitle = styled.div`
   font-family: var(--font-display), 'Times New Roman', serif;
-  font-size: 14px;
+  font-size: 13px;
   font-weight: 700;
-  letter-spacing: 2px;
+  letter-spacing: 1px;
   color: #d4a017;
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 4px;
+  flex-shrink: 0;
+  white-space: nowrap;
+
+  @media (max-width: 480px) {
+    font-size: 11px;
+    letter-spacing: 0.5px;
+  }
 `;
 
 const TopBarVersion = styled.span`
-  font-size: 10px;
+  font-size: 9px;
   color: ${DESIGN.colors.text.tertiary};
+
+  @media (max-width: 480px) {
+    display: none;
+  }
+`;
+
+const HideOnMobile = styled.div`
+  display: flex;
+  align-items: center;
+  gap: 4px;
+
+  @media (max-width: 600px) {
+    display: none;
+  }
 `;
 
 const TopBarInfo = styled.div`
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: 4px;
+  flex-shrink: 1;
+  min-width: 0;
 `;
 
 const TopBarButton = styled.button`
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   border: 1px solid rgba(212,160,23,0.15);
   background: rgba(19,33,19,0.8);
@@ -1187,12 +1212,14 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           {secondsLeft !== null && (
             <TimerChip urgent={secondsLeft <= 5}>{secondsLeft}s</TimerChip>
           )}
-          <TopBarButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
-            {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
-          </TopBarButton>
-          <TopBarButton onClick={() => setShowThemePicker(v => !v)} title="Colore del tavolo">
-            <Palette size={15} />
-          </TopBarButton>
+          <HideOnMobile>
+            <TopBarButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
+              {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+            </TopBarButton>
+            <TopBarButton onClick={() => setShowThemePicker(v => !v)} title="Colore del tavolo">
+              <Palette size={15} />
+            </TopBarButton>
+          </HideOnMobile>
           <TopBarButton onClick={() => setShowRules(true)} title="Come si gioca">
             <RulesIcon />
           </TopBarButton>
@@ -1201,10 +1228,12 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
               <QuickChatIcon />
             </TopBarButton>
           )}
-          {isOnline
-            ? <Wifi size={14} color="#d4a017" />
-            : <WifiOff size={14} color="#e63946" />
-          }
+          <HideOnMobile>
+            {isOnline
+              ? <Wifi size={14} color="#d4a017" />
+              : <WifiOff size={14} color="#e63946" />
+            }
+          </HideOnMobile>
         </TopBarInfo>
       </TopBar>
 
@@ -1229,7 +1258,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
                 <DeckCountBadge>{gameState.deck.length}</DeckCountBadge>
               </DeckPile>
             )}
-            {gameState.trumpCard && <PileLabel>Briscola</PileLabel>}
+            {gameState.trumpCard && gameState.deck.length === 0 && <PileLabel>Briscola</PileLabel>}
           </CenterPile>
 
           {/* Carte giocate: ancorate al feltro, atterrano sempre sul panno */}
@@ -1269,21 +1298,6 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
             );
           })}
 
-          {/* Punti della presa: appaiono solo durante la raccolta */}
-          {roundWinnerId && winnerSeat && trickPoints > 0 && (
-            <TrickPointsFloat
-              key={`pts_${gameState.roundNumber}`}
-              style={{
-                left: `calc(50% + ${SEAT_VECTORS[winnerSeat][0] * 28}%)`,
-                top: `calc(50% + ${SEAT_VECTORS[winnerSeat][1] * 28}%)`,
-              }}
-            >
-              <TrickPointsInner>
-                <b>+{trickPoints}</b>
-                <span>punti</span>
-              </TrickPointsInner>
-            </TrickPointsFloat>
-          )}
         </FeltTable>
 
         {/* Player Seats — dai posti della partita, non dai connessi:

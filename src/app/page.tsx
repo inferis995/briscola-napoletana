@@ -20,8 +20,7 @@ import { GameState, BaseGameLogic, remapPlayerId, SeatOwner } from '@/game/BaseG
 import { GameMode, getGameModeConfig, createGameLogic } from '@/game/GameModeSelector';
 import { TwoVTwoGameLogic } from '@/game/modes/TwoVTwoGameLogic';
 import { detectDevice, DeviceType } from '@/utils/deviceDetection';
-import { DesktopGameUI } from '@/components/DesktopGameUI';
-import { MobileGameUI } from '@/components/MobileGameUI';
+import { RoundTableGameUI } from '@/components/RoundTableGameUI';
 import { HeroScreen, LS_USERNAME_KEY, LS_EMOJI_KEY, AVATAR_EMOJIS } from '@/components/HeroScreen';
 import { DESIGN, getPlayerName, getPlayerEmoji, getPlayerTeam, TEAM_COLORS } from '@/components/shared/gameDesign';
 
@@ -760,21 +759,8 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   }
 
   // ==================== GAME VIEW ====================
-  const gameUI = deviceType === 'desktop' ? (
-    <DesktopGameUI
-      gameState={gameState}
-      players={players}
-      currentPlayerId={currentPlayer!.id}
-      onCardPlay={handleCardPlay}
-      onSwapTrump={handleSwapTrump}
-      onPlayAgain={handlePlayAgain}
-      onStartSecondSmazzata={handleStartSecondSmazzata}
-      isHost={amHost}
-      onQuickChat={handleQuickChat}
-      quickChatMessage={quickChat}
-    />
-  ) : (
-    <MobileGameUI
+  const gameUI = (
+    <RoundTableGameUI
       gameState={gameState}
       players={players}
       currentPlayerId={currentPlayer!.id}

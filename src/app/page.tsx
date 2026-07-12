@@ -489,6 +489,10 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       showNotification("Servono più giocatori per iniziare!", "WARNING" as any);
       return;
     }
+    if (players.length > (modeConfig?.maxPlayers ?? 4)) {
+      showNotification("Troppi giocatori per questa modalità!", "ERROR" as any);
+      return;
+    }
     try {
       const logic = createGameLogic(players, activeMode || GameMode.THREE_FOR_ALL);
       gameLogicRef.current = logic;
@@ -1383,6 +1387,16 @@ export default function Home() {
 
     try {
       if (typeof window !== 'undefined') {
+        // Pulisci vecchia sessione Playroom Kit prima di creare/entrare
+        try {
+          sessionStorage.removeItem('playroomkit');
+          sessionStorage.removeItem('playroom_state');
+          localStorage.removeItem('playroomkit');
+        } catch {}
+        // Rimuovi hash #r=XXXX vecchio dalla URL
+        if (window.location.hash) {
+          history.replaceState(null, '', window.location.pathname + window.location.search);
+        }
         (window as any)._USETEMPSTORAGE = true;
       }
       await insertCoin({

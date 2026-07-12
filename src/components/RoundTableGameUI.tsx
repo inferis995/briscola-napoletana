@@ -209,19 +209,25 @@ const FeltTable = styled.div`
   }
 `;
 
-// ===== CENTRO TAVOLO: tallone col dorso vero + briscola coricata sotto =====
+// ===== TALLONE + BRISCOLA: in basso a sinistra sul feltro =====
+// Ancorato al FELTRO (non all'area di gioco) così resta sempre dentro il
+// tavolo su ogni schermo. Il centro rimane libero per le carte giocate;
+// se una carta sfiora il tallone, il tallone resta sopra (z-index) e il
+// contatore non viene mai coperto.
 const CenterPile = styled.div`
   position: absolute;
-  top: 50%;
-  left: 50%;
-  transform: translate(-50%, -50%);
+  left: 22%;
+  top: 70%;
+  transform: translate(-50%, -50%) rotate(-4deg);
   width: 150px;
   height: 92px;
-  z-index: 2;
+  z-index: 6;
 
   @media (max-width: 768px) {
-    width: 120px;
-    height: 74px;
+    width: 104px;
+    height: 64px;
+    left: 21%;
+    top: 72%;
   }
 `;
 
@@ -247,8 +253,8 @@ const TrumpUnder = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 50px;
-    height: 70px;
+    width: 44px;
+    height: 62px;
     left: 60%;
   }
 `;
@@ -274,8 +280,8 @@ const TrumpUpright = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 50px;
-    height: 70px;
+    width: 44px;
+    height: 62px;
   }
 `;
 
@@ -303,8 +309,8 @@ const DeckPile = styled.div`
   }
 
   @media (max-width: 768px) {
-    width: 50px;
-    height: 70px;
+    width: 44px;
+    height: 62px;
   }
 `;
 
@@ -1146,28 +1152,28 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
       {/* Table Area */}
       <TableArea>
-        <FeltTable />
-
-        {/* Centro tavolo: tallone col dorso vero, briscola coricata sotto */}
-        <CenterPile>
-          {gameState.trumpCard && gameState.deck.length > 0 && (
-            <TrumpUnder>
-              <img src={gameState.trumpCard.imagePath} alt="Briscola" />
-            </TrumpUnder>
-          )}
-          {gameState.trumpCard && gameState.deck.length === 0 && (
-            <TrumpUpright>
-              <img src={gameState.trumpCard.imagePath} alt="Briscola" />
-            </TrumpUpright>
-          )}
-          {gameState.deck.length > 0 && (
-            <DeckPile>
-              <img src="/assets/cards/back.jpg" alt="Mazzo" />
-              <DeckCountBadge>{gameState.deck.length}</DeckCountBadge>
-            </DeckPile>
-          )}
-          {gameState.trumpCard && <PileLabel>Briscola</PileLabel>}
-        </CenterPile>
+        <FeltTable>
+          {/* Tallone col dorso vero + briscola coricata sotto, ancorati al feltro */}
+          <CenterPile>
+            {gameState.trumpCard && gameState.deck.length > 0 && (
+              <TrumpUnder>
+                <img src={gameState.trumpCard.imagePath} alt="Briscola" />
+              </TrumpUnder>
+            )}
+            {gameState.trumpCard && gameState.deck.length === 0 && (
+              <TrumpUpright>
+                <img src={gameState.trumpCard.imagePath} alt="Briscola" />
+              </TrumpUpright>
+            )}
+            {gameState.deck.length > 0 && (
+              <DeckPile>
+                <img src="/assets/cards/back.jpg" alt="Mazzo" />
+                <DeckCountBadge>{gameState.deck.length}</DeckCountBadge>
+              </DeckPile>
+            )}
+            {gameState.trumpCard && <PileLabel>Briscola</PileLabel>}
+          </CenterPile>
+        </FeltTable>
 
         {/* Punti della presa: appaiono solo durante la raccolta */}
         {roundWinnerId && winnerSeat && trickPoints > 0 && (

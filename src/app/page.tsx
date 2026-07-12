@@ -487,6 +487,23 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
     setQuickChat({ senderId: currentPlayer.id, message, ts: Date.now() }, true);
   }, [currentPlayer, setQuickChat]);
 
+  // Chat realtime-only: lo stato condiviso conserva l'ultimo messaggio per
+  // sempre, ma va mostrato SOLO quando arriva. Niente ripescaggi quando la UI
+  // si rimonta (nuova partita) o quando un giocatore entra dopo l'invio.
+  const [visibleChat, setVisibleChat] = useState<{ senderId: string; message: string; ts: number } | null>(null);
+  const lastChatTsRef = useRef(0);
+  useEffect(() => {
+    if (!quickChat || !quickChat.ts) return;
+    if (quickChat.ts === lastChatTsRef.current) return;
+    // Primo snapshot ricevuto alla connessione: se il messaggio è vecchio, ignoralo
+    const isStaleSnapshot = lastChatTsRef.current === 0 && Date.now() - quickChat.ts > 8000;
+    lastChatTsRef.current = quickChat.ts;
+    if (isStaleSnapshot) return;
+    setVisibleChat(quickChat);
+    const timer = setTimeout(() => setVisibleChat(null), 3500);
+    return () => clearTimeout(timer);
+  }, [quickChat]);
+
   // Host starts game manually from lobby
   const handleStartGame = useCallback(() => {
     if (!amHost) return;
@@ -799,7 +816,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       onStartSecondSmazzata={handleStartSecondSmazzata}
       isHost={amHost}
       onQuickChat={handleQuickChat}
-      quickChatMessage={quickChat}
+      quickChatMessage={visibleChat}
     />
   );
 

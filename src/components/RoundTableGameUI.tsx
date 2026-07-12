@@ -17,6 +17,7 @@ import {
   playCardFlipSound,
   TEAM_COLORS,
 } from '@/components/shared/gameDesign';
+import { useTurnCountdown, TimerChip } from '@/components/shared/TurnTimer';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
 
 // ===== TYPES =====
@@ -604,6 +605,10 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   const [isOnline, setIsOnline] = useState(true);
   const [isFadingOut, setIsFadingOut] = useState(false);
 
+  // Turn timer
+  const isMyTurn = gameState.phase === 'playing' && currentTurnIndex === players.findIndex(p => p.id === currentPlayerId);
+  const secondsLeft = useTurnCountdown(gameState.turnDeadline, gameState.phase === 'playing', isMyTurn);
+
   // Online status
   useEffect(() => {
     setIsOnline(navigator.onLine);
@@ -792,10 +797,13 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
       {/* Top Bar */}
       <TopBar>
         <TopBarTitle>
-          BRISCOLA NAPOLETANA<TopBarVersion>v{packageJson.version}</TopBarVersion>
+          BRISCOLA<TopBarVersion>v{packageJson.version}</TopBarVersion>
         </TopBarTitle>
         <TopBarInfo>
-          <RoundBadge>Smazzata {gameState.smazzataNumber} · Turno {gameState.roundNumber}</RoundBadge>
+          <RoundBadge>{gameState.smazzataNumber > 1 ? `S${gameState.smazzataNumber} · ` : ''}T{gameState.roundNumber}</RoundBadge>
+          {secondsLeft !== null && (
+            <TimerChip urgent={secondsLeft <= 5}>{secondsLeft}s</TimerChip>
+          )}
           <TopBarButton onClick={() => setShowRules(true)} title="Come si gioca">
             <RulesIcon />
           </TopBarButton>
@@ -870,9 +878,14 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
               <SeatName>
                 {isYou ? 'Tu' : getPlayerName(player)}
               </SeatName>
-              {isTeamMode && playerTeam && (
-                <TeamBadge team={playerTeam}>S{playerTeam}</TeamBadge>
-              )}
+              <div style={{ display: 'flex', gap: '4px', alignItems: 'center' }}>
+                {isActive && secondsLeft !== null && (
+                  <TimerChip urgent={secondsLeft <= 5}>{secondsLeft}s</TimerChip>
+                )}
+                {isTeamMode && playerTeam && (
+                  <TeamBadge team={playerTeam}>S{playerTeam}</TeamBadge>
+                )}
+              </div>
             </PlayerSeat>
           );
         })}

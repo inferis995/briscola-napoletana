@@ -56,20 +56,28 @@ const getClientId = (): string => {
   return cachedClientId;
 };
 
-const saveLastRoom = (code: string): void => {
+// Salviamo anche la MODALITÀ: se la stanza muore (eri da solo) e la si
+// ricrea al rientro, la modalità viveva solo nello stato condiviso perso —
+// senza questa il rientro in un 1v1 riapriva una lobby a 4.
+interface LastRoom {
+  code: string;
+  mode?: string;
+}
+
+const saveLastRoom = (code: string, mode?: string): void => {
   try {
-    localStorage.setItem(LS_LAST_ROOM_KEY, JSON.stringify({ code, ts: Date.now() }));
+    localStorage.setItem(LS_LAST_ROOM_KEY, JSON.stringify({ code, mode, ts: Date.now() }));
   } catch {}
 };
 
-const readLastRoom = (): string | null => {
+const readLastRoom = (): LastRoom | null => {
   try {
     const raw = localStorage.getItem(LS_LAST_ROOM_KEY);
     if (!raw) return null;
-    const { code, ts } = JSON.parse(raw);
+    const { code, mode, ts } = JSON.parse(raw);
     if (typeof code !== 'string' || typeof ts !== 'number') return null;
     if (Date.now() - ts > LAST_ROOM_MAX_AGE_MS) return null;
-    return code;
+    return { code, mode: typeof mode === 'string' ? mode : undefined };
   } catch {
     return null;
   }
@@ -207,10 +215,11 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
     return () => clearInterval(timer);
   }, []);
 
-  // Memorizza l'ultima stanza per il prompt "riprendi partita" dopo un refresh
+  // Memorizza l'ultima stanza (e la sua modalità) per il prompt
+  // "riprendi partita" dopo un refresh
   useEffect(() => {
-    if (roomCode) saveLastRoom(roomCode);
-  }, [roomCode]);
+    if (roomCode) saveLastRoom(roomCode, activeMode || undefined);
+  }, [roomCode, activeMode]);
 
   // Device detection
   useEffect(() => {
@@ -1423,7 +1432,7 @@ export default function Home() {
   const [quickJoinEmoji, setQuickJoinEmoji] = useState(AVATAR_EMOJIS[0]);
 
   // Prompt "riprendi l'ultima partita" (riconnessione dopo refresh/crash)
-  const [resumeCode, setResumeCode] = useState<string | null>(null);
+  const [resumeRoom, setResumeRoom] = useState<LastRoom | null>(null);
 
   const connect = useCallback(async (name: string, emoji: string, roomCode?: string, mode?: GameMode) => {
     setUsername(name);
@@ -1461,7 +1470,7 @@ export default function Home() {
     } catch (error: any) {
       console.error('insertCoin failed:', error);
       // Evita che il prompt di ripresa continui a proporre una stanza inaccessibile
-      if (roomCode && readLastRoom() === roomCode) clearLastRoom();
+      if (roomCode && readLastRoom()?.code === roomCode) clearLastRoom();
       if (error?.message === 'ROOM_LIMIT_EXCEEDED') {
         setConnectError('Stanza piena! Se ti stai riconnettendo, riprova tra qualche secondo.');
       } else {
@@ -1508,7 +1517,7 @@ export default function Home() {
     const savedName = localStorage.getItem(LS_USERNAME_KEY);
     const savedEmoji = localStorage.getItem(LS_EMOJI_KEY);
     if (lastRoom && savedName && savedEmoji) {
-      setResumeCode(lastRoom);
+      setResumeRoom(lastRoom);
     }
   }, [connect]);
 
@@ -1578,28 +1587,33 @@ export default function Home() {
   }
 
   // ===== RESUME PROMPT (riconnessione all'ultima partita) =====
-  if (resumeCode && phase === 'hero') {
+  if (resumeRoom && phase === 'hero') {
     return (
       <>
         <GlobalStyle />
         <QuickJoinOverlay>
           <QuickJoinCard>
             <QuickJoinTitle>Riprendi la partita?</QuickJoinTitle>
-            <QuickJoinSubtitle>Stanza: {resumeCode}</QuickJoinSubtitle>
+            <QuickJoinSubtitle>Stanza: {resumeRoom.code}</QuickJoinSubtitle>
             <p style={{ fontSize: '13px', color: DESIGN.colors.text.secondary, textAlign: 'center', margin: '0 0 20px' }}>
               Risulti in una partita recente. Vuoi rientrare al tuo posto?
             </p>
             <QuickJoinActions>
-              <QuickJoinCancelBtn onClick={() => { clearLastRoom(); setResumeCode(null); }}>
+              <QuickJoinCancelBtn onClick={() => { clearLastRoom(); setResumeRoom(null); }}>
                 No, nuova partita
               </QuickJoinCancelBtn>
               <QuickJoinSubmitBtn onClick={() => {
                 const savedName = localStorage.getItem(LS_USERNAME_KEY);
                 const savedEmoji = localStorage.getItem(LS_EMOJI_KEY);
-                const code = resumeCode;
-                setResumeCode(null);
+                const { code, mode } = resumeRoom;
+                setResumeRoom(null);
                 if (savedName && savedEmoji && code) {
-                  connect(savedName, savedEmoji, code);
+                  // Ripassa la modalità salvata: se la stanza è morta (eri da
+                  // solo) rinasce identica — 1v1 resta 1v1, non lobby a 4
+                  const validMode = mode && (Object.values(GameMode) as string[]).includes(mode)
+                    ? (mode as GameMode)
+                    : undefined;
+                  connect(savedName, savedEmoji, code, validMode);
                 }
               }}>
                 RIENTRA

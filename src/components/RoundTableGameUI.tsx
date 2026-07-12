@@ -10,10 +10,6 @@ import { Wifi, WifiOff } from 'lucide-react';
 import packageJson from '../../package.json';
 import {
   DESIGN,
-  borderGlow,
-  borderFadeOut,
-  fadeOut,
-  cardEntrance,
   cardColors,
   GameUIProps,
   getPlayerName,
@@ -40,8 +36,13 @@ const pulseGlow = keyframes`
 `;
 
 const cardSlideIn = keyframes`
-  from { opacity: 0; transform: scale(0.7) translateY(20px); }
-  to { opacity: 1; transform: scale(1) translateY(0); }
+  from { opacity: 0; transform: scale(0.8); }
+  to { opacity: 1; transform: scale(1); }
+`;
+
+const handEntrance = keyframes`
+  from { opacity: 0; transform: translateY(16px); }
+  to { opacity: 1; transform: translateY(0); }
 `;
 
 // ===== MAIN CONTAINER =====
@@ -300,7 +301,7 @@ const SeatAvatar = styled.div<{ isActive: boolean; teamColor?: string }>`
   justify-content: center;
   font-size: 22px;
   line-height: 1;
-  ${props => props.isActive && `animation: ${pulseGlow} 1.5s ease-in-out infinite;`}
+  ${props => props.isActive && css`animation: ${pulseGlow} 1.5s ease-in-out infinite;`}
 
   @media (min-width: 769px) {
     width: 52px;
@@ -391,21 +392,6 @@ const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: 
     width: 80px;
     height: 112px;
   }
-
-  ${props => props.isWinner && css`
-    &::before {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border: 2px solid #d4a017;
-      border-radius: 8px;
-      animation: ${borderGlow} 0.6s ease forwards, ${borderFadeOut} 0.3s ease 1s forwards;
-    }
-  `}
-
-  ${props => props.isFadingOut && css`
-    animation: ${fadeOut} 250ms ease forwards;
-  `}
 `;
 
 // ===== HAND DOCK (bottom - your cards) =====
@@ -429,7 +415,6 @@ const HandCardWrapper = styled.div<{ isPlayable: boolean; entranceDelay: number 
   cursor: ${props => props.isPlayable ? 'pointer' : 'default'};
   opacity: ${props => props.isPlayable ? 1 : 0.5};
   transition: transform 200ms ease;
-  animation: ${cardEntrance} 200ms ease ${props => props.entranceDelay}ms both;
 
   &:hover {
     ${props => props.isPlayable && `transform: translateY(-10px);`}

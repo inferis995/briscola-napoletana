@@ -516,9 +516,15 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
   quickChatMessage,
 }) => {
   const playedCards = gameState.playedCards;
-  const currentTurnIndex = gameState.currentTurnPlayerIndex;
-  const currentPlayerIndex = players.findIndex(p => p.id === currentPlayerId);
-  const isCurrentPlayerTurn = gameState.phase === 'playing' && currentTurnIndex === currentPlayerIndex;
+  // Il turno si determina dall'ordine dei posti (chiavi di playerHands), non
+  // dall'ordine della lista connessi: dopo una riconnessione i due divergono
+  const seatIds = Object.keys(gameState.playerHands);
+  const activeTurnPlayerId = gameState.phase === 'playing'
+    ? (gameState.turnOrder
+        ? gameState.turnOrder[gameState.playedCards.length]
+        : seatIds[gameState.currentTurnPlayerIndex]) || null
+    : null;
+  const isCurrentPlayerTurn = activeTurnPlayerId === currentPlayerId;
   const playerHand = gameState.playerHands[currentPlayerId] || [];
 
   // ===== ROUND WINNER STATE =====
@@ -529,7 +535,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
   const [isFadingOut, setIsFadingOut] = useState(false);
 
   // Slot in tavola: basati sui posti della partita (non sui connessi attuali)
-  const seatCount = Math.max(players.length, Object.keys(gameState.playerHands).length);
+  const seatCount = Math.max(players.length, seatIds.length);
   // Distanza tra slot per l'animazione di raccolta (larghezza 90 + gap)
   const slotStep = seatCount >= 4 ? 94 : 106;
 
@@ -889,9 +895,9 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
 
       {/* Players Row */}
       <PlayersRow>
-        {players.map((player, index) => {
+        {players.map((player) => {
           const isYou = player.id === currentPlayerId;
-          const isActive = currentTurnIndex === index;
+          const isActive = player.id === activeTurnPlayerId;
 
           return (
             <PlayerPill key={player.id} isActive={isActive} isYou={isYou} isSwapHighlighted={swapHighlightId === player.id}>

@@ -29,6 +29,11 @@ export interface RoundHistoryEntry {
   winnerId: string;
 }
 
+export interface SeatOwner {
+  clientId: string;
+  name: string;
+}
+
 export interface GameState {
   phase: GamePhase;
   deck: Card[];
@@ -53,6 +58,9 @@ export interface GameState {
   turnDeadline?: number | null;
   // Partita terminata in anticipo (es. un giocatore ha abbandonato)
   endedEarly?: boolean;
+  // Registro dei posti al tavolo: playerId → identità persistente del proprietario.
+  // Permette a chi si disconnette di reclamare il proprio posto al rientro.
+  seatOwners?: { [playerId: string]: SeatOwner };
   // 2 smazzate fields (1v1 and 2v2 only)
   smazzataNumber: number;
   smazzata1Scores?: { [playerId: string]: number };
@@ -66,6 +74,48 @@ export interface GameConfig {
   minPlayers: number;
   maxPlayers: number;
 }
+
+/**
+ * Sostituisce ovunque nello stato un player id con uno nuovo (riconnessione:
+ * il giocatore rientrato ha un nuovo id ma reclama il suo vecchio posto).
+ * L'ordine delle chiavi viene preservato: è l'ordine dei posti al tavolo,
+ * da cui dipendono currentTurnPlayerIndex e la ricostruzione della logica.
+ */
+export const remapPlayerId = (state: GameState, oldId: string, newId: string): GameState => {
+  const renameKeys = <T,>(obj: { [pid: string]: T } | undefined): { [pid: string]: T } | undefined => {
+    if (!obj) return obj;
+    const out: { [pid: string]: T } = {};
+    for (const key of Object.keys(obj)) {
+      out[key === oldId ? newId : key] = obj[key];
+    }
+    return out;
+  };
+  const mapId = (id: string | null | undefined): string | null =>
+    id === oldId ? newId : (id ?? null);
+  const mapPlayed = (cards: PlayedCardData[]): PlayedCardData[] =>
+    cards.map(pc => (pc.playerId === oldId ? { ...pc, playerId: newId } : pc));
+
+  return {
+    ...state,
+    playerHands: renameKeys(state.playerHands)!,
+    playerStacks: renameKeys(state.playerStacks)!,
+    finalScores: renameKeys(state.finalScores)!,
+    smazzata1Scores: renameKeys(state.smazzata1Scores),
+    smazzata2Scores: renameKeys(state.smazzata2Scores),
+    teams: renameKeys(state.teams),
+    seatOwners: renameKeys(state.seatOwners),
+    playedCards: mapPlayed(state.playedCards),
+    roundHistory: state.roundHistory.map(entry => ({
+      ...entry,
+      winnerId: mapId(entry.winnerId) || entry.winnerId,
+      playedCards: mapPlayed(entry.playedCards),
+    })),
+    roundWinnerId: mapId(state.roundWinnerId),
+    gameWinnerId: mapId(state.gameWinnerId),
+    lastSwapPlayerId: mapId(state.lastSwapPlayerId),
+    turnOrder: state.turnOrder?.map(id => (id === oldId ? newId : id)),
+  };
+};
 
 /**
  * Base class for all game modes.

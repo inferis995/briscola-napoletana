@@ -12,10 +12,11 @@ import {
   onPlayerJoin,
   RPC,
   getRoomCode,
+  PlayerState,
 } from "playroomkit";
 import { Card, BRISCOLA_VALUE_ORDER } from '@/components/Card';
 import { useNotification } from '@/components/Notification';
-import { GameState, BaseGameLogic } from '@/game/BaseGameLogic';
+import { GameState, BaseGameLogic, remapPlayerId, SeatOwner } from '@/game/BaseGameLogic';
 import { GameMode, getGameModeConfig, createGameLogic } from '@/game/GameModeSelector';
 import { TwoVTwoGameLogic } from '@/game/modes/TwoVTwoGameLogic';
 import { detectDevice, DeviceType } from '@/utils/deviceDetection';
@@ -26,6 +27,72 @@ import { DESIGN, getPlayerName, getPlayerEmoji, getPlayerTeam, TEAM_COLORS } fro
 
 // ===== TYPES =====
 type AppPhase = 'hero' | 'connecting' | 'connected';
+
+// ===== RICONNESSIONE =====
+// Identità persistente del client: sopravvive a refresh/crash e permette
+// di reclamare il proprio posto al tavolo quando si rientra in partita.
+const LS_CLIENT_ID_KEY = 'briscola_client_id';
+const LS_LAST_ROOM_KEY = 'briscola_last_room';
+// Tempo concesso a un ex-host disconnesso per rientrare prima che il nuovo
+// host chiuda la partita mostrando i punteggi parziali.
+const RECONNECT_GRACE_MS = 60000;
+// Validità del prompt "riprendi l'ultima partita"
+const LAST_ROOM_MAX_AGE_MS = 3 * 60 * 60 * 1000;
+
+let cachedClientId: string | null = null;
+const getClientId = (): string => {
+  if (cachedClientId) return cachedClientId;
+  try {
+    let id = localStorage.getItem(LS_CLIENT_ID_KEY);
+    if (!id) {
+      id = typeof crypto !== 'undefined' && crypto.randomUUID
+        ? crypto.randomUUID()
+        : `${Date.now()}_${Math.random().toString(36).slice(2)}`;
+      localStorage.setItem(LS_CLIENT_ID_KEY, id);
+    }
+    cachedClientId = id;
+  } catch {
+    cachedClientId = `mem_${Date.now()}_${Math.random().toString(36).slice(2)}`;
+  }
+  return cachedClientId;
+};
+
+const saveLastRoom = (code: string): void => {
+  try {
+    localStorage.setItem(LS_LAST_ROOM_KEY, JSON.stringify({ code, ts: Date.now() }));
+  } catch {}
+};
+
+const readLastRoom = (): string | null => {
+  try {
+    const raw = localStorage.getItem(LS_LAST_ROOM_KEY);
+    if (!raw) return null;
+    const { code, ts } = JSON.parse(raw);
+    if (typeof code !== 'string' || typeof ts !== 'number') return null;
+    if (Date.now() - ts > LAST_ROOM_MAX_AGE_MS) return null;
+    return code;
+  } catch {
+    return null;
+  }
+};
+
+const clearLastRoom = (): void => {
+  try {
+    localStorage.removeItem(LS_LAST_ROOM_KEY);
+  } catch {}
+};
+
+// Registro dei posti: associa ogni posto (player id di inizio partita)
+// all'identità persistente e al nome del proprietario
+const stampSeatOwners = (state: GameState, seatPlayers: PlayerState[]): GameState => ({
+  ...state,
+  seatOwners: Object.fromEntries(
+    seatPlayers.map(p => [p.id, {
+      clientId: (p.getState?.('clientId') as string) || '',
+      name: getPlayerName(p),
+    } as SeatOwner])
+  ),
+});
 
 // ===== TURN TIMER =====
 const TURN_TIMEOUT_MS = 30000;
@@ -73,16 +140,30 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   const playersRef = useRef(players);
   const activeModeRef = useRef<GameMode | null>(null);
   const endedEarlyRef = useRef(false);
+  // PlayerState per posto: conserva anche i giocatori usciti, così la logica
+  // resta ricostruibile mentre si aspetta un loro eventuale rientro
+  const seatPlayerMapRef = useRef<{ [playerId: string]: PlayerState }>({});
 
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { setGameStateRef.current = setGameState; }, [setGameState]);
   useEffect(() => { playersRef.current = players; }, [players]);
+
+  // Risolve i PlayerState dei posti nell'ordine dei posti (chiavi di playerHands).
+  // Ritorna null se qualche posto non è risolvibile.
+  const resolveSeatPlayers = useCallback((state: GameState): PlayerState[] | null => {
+    const seatIds = Object.keys(state.playerHands);
+    const resolved = seatIds.map(id =>
+      playersRef.current.find(p => p.id === id) || seatPlayerMapRef.current[id]
+    );
+    return resolved.every(Boolean) ? (resolved as PlayerState[]) : null;
+  }, []);
 
   // Set player profile on mount
   useEffect(() => {
     if (currentPlayer && !profileSetRef.current) {
       currentPlayer.setState('displayName', username, true);
       currentPlayer.setState('avatarEmoji', avatarEmoji, true);
+      currentPlayer.setState('clientId', getClientId(), true);
       profileSetRef.current = true;
     }
   }, [currentPlayer, username, avatarEmoji]);
@@ -115,6 +196,11 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
     }, 500);
     return () => clearInterval(timer);
   }, []);
+
+  // Memorizza l'ultima stanza per il prompt "riprendi partita" dopo un refresh
+  useEffect(() => {
+    if (roomCode) saveLastRoom(roomCode);
+  }, [roomCode]);
 
   // Device detection
   useEffect(() => {
@@ -150,6 +236,54 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       return "ok";
     });
 
+    // Riconnessione: un giocatore rientrato (nuovo player id) reclama il suo
+    // posto tramite l'identità persistente. L'host rimappa lo stato sul nuovo
+    // id e ricostruisce la logica di gioco.
+    RPC.register('claimSeat', async (data: { clientId: string }, caller: any) => {
+      if (!isHost()) return 'not_host';
+      if (!data?.clientId) return 'invalid';
+      const state = gameStateRef.current;
+      if (!state || !state.seatOwners) return 'no_game';
+
+      const owners = state.seatOwners;
+      const seatId = Object.keys(owners).find(sid => owners[sid].clientId === data.clientId);
+      if (!seatId) return 'no_seat';
+      if (seatId === caller.id || state.playerHands[caller.id]) return 'already_seated';
+      // Il posto è reclamabile solo se il suo occupante originale è uscito
+      if (playersRef.current.some(p => p.id === seatId)) return 'seat_taken';
+
+      const callerPlayer: PlayerState =
+        playersRef.current.find(p => p.id === caller.id) || (caller as PlayerState);
+
+      let newState = remapPlayerId(state, seatId, caller.id);
+      // Aggiorna il nome nel registro (potrebbe essere cambiato al rientro)
+      newState = {
+        ...newState,
+        seatOwners: {
+          ...newState.seatOwners,
+          [caller.id]: { clientId: data.clientId, name: getPlayerName(callerPlayer) },
+        },
+      };
+
+      delete seatPlayerMapRef.current[seatId];
+      seatPlayerMapRef.current[caller.id] = callerPlayer;
+
+      // Ricostruisce la logica nell'ordine dei posti
+      const seatPlayers = resolveSeatPlayers(newState);
+      if (seatPlayers && activeModeRef.current) {
+        try {
+          const logic = createGameLogic(seatPlayers, activeModeRef.current);
+          logic.loadState(newState);
+          gameLogicRef.current = logic;
+        } catch (error) {
+          console.error('Ricostruzione logica dopo reclaim fallita:', error);
+        }
+      }
+
+      setGameStateRef.current(stampTurnDeadline(newState), true);
+      return 'ok';
+    });
+
     RPC.register('playAgain', async (_data: any, _caller: any) => {
       if (!isHost()) return;
       let logic = gameLogicRef.current;
@@ -177,7 +311,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         newState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPid, newState.teams, allPlayers);
       }
 
-      setGameStateRef.current(stampTurnDeadline(newState), true);
+      setGameStateRef.current(stampTurnDeadline(stampSeatOwners(newState, allPlayers)), true);
       return "ok";
     });
 
@@ -186,9 +320,10 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const logic = gameLogicRef.current;
       if (!logic) return;
       const newState = logic.startSecondSmazzata();
-      setGameStateRef.current(stampTurnDeadline(newState), true);
+      setGameStateRef.current(stampTurnDeadline(stampSeatOwners(newState, logic.getPlayers())), true);
       return "ok";
     });
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   // Host: risolve la presa dopo la pausa visiva. Vive in un effect (non nel
@@ -204,8 +339,10 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       setGameStateRef.current(stampTurnDeadline(resolvedState), true);
     }, 1600);
     return () => clearTimeout(timer);
+    // Dipende dall'identità dello stato: così un reclaim durante
+    // round_complete rischedula la risoluzione con lo stato rimappato
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [amHost, gameState?.phase, gameState?.roundNumber]);
+  }, [amHost, gameState]);
 
   // Host: allo scadere del timer di turno gioca in automatico una carta
   // per il giocatore di turno (evita che un AFK/disconnesso blocchi tutti)
@@ -234,8 +371,9 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   }, [amHost, gameState?.phase, gameState?.turnDeadline]);
 
   // Nuovo host dopo migrazione: ricostruisce la logica dallo stato condiviso.
-  // Se manca un giocatore (chi è uscito era l'host), chiude la partita
-  // mostrando i punteggi raccolti invece di lasciare il tavolo congelato.
+  // Se un posto è vacante (chi è uscito era l'host), concede una finestra di
+  // grazia per il rientro; solo allo scadere chiude la partita mostrando i
+  // punteggi raccolti, invece di lasciare il tavolo congelato.
   useEffect(() => {
     if (!amHost || !gameState || gameLogicRef.current) return;
     const activePhases = ['playing', 'round_complete', 'revealing_hands', 'smazzata_complete'];
@@ -243,50 +381,60 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
     const seatIds = Object.keys(gameState.playerHands);
     if (seatIds.length === 0) return;
 
-    const allPresent = seatIds.every(id => players.some(p => p.id === id));
-    if (allPresent && activeMode) {
+    const seatPlayers = resolveSeatPlayers(gameState);
+    if (seatPlayers && activeMode) {
       try {
-        // L'ordine di inserimento in playerHands riflette l'ordine originale dei giocatori
-        const ordered = seatIds.map(id => players.find(p => p.id === id)!);
-        const logic = createGameLogic(ordered, activeMode);
+        const logic = createGameLogic(seatPlayers, activeMode);
         logic.loadState(gameState);
         gameLogicRef.current = logic;
+        seatPlayers.forEach(p => { seatPlayerMapRef.current[p.id] = p; });
         return;
       } catch (error) {
         console.error('Ricostruzione logica di gioco fallita:', error);
       }
     }
 
-    if (endedEarlyRef.current) return;
-    endedEarlyRef.current = true;
+    // Posto vacante: aspetta un eventuale reclaim prima di chiudere
+    const timer = setTimeout(() => {
+      const latest = gameStateRef.current;
+      if (!latest || gameLogicRef.current || endedEarlyRef.current) return;
+      if (!activePhases.includes(latest.phase)) return;
+      const latestSeatIds = Object.keys(latest.playerHands);
+      const stillMissing = latestSeatIds.some(
+        id => !playersRef.current.some(p => p.id === id) && !seatPlayerMapRef.current[id]
+      );
+      if (!stillMissing) return;
+      endedEarlyRef.current = true;
 
-    const scores: { [pid: string]: number } = {};
-    seatIds.forEach(pid => {
-      scores[pid] = (gameState.playerStacks[pid] || []).reduce((t, c) => t + c.score, 0);
-    });
-    let teamScores: { [team: string]: number } | undefined;
-    let winnerTeam: number | undefined;
-    if (gameState.teams) {
-      teamScores = { '1': 0, '2': 0 };
-      Object.keys(scores).forEach(pid => {
-        teamScores![String(gameState.teams![pid] || 1)] += scores[pid];
+      const scores: { [pid: string]: number } = {};
+      latestSeatIds.forEach(pid => {
+        scores[pid] = (latest.playerStacks[pid] || []).reduce((t, c) => t + c.score, 0);
       });
-      winnerTeam = teamScores['1'] === teamScores['2'] ? 0 : teamScores['1'] > teamScores['2'] ? 1 : 2;
-    }
-    const maxScore = Math.max(...Object.values(scores));
-    const topPlayers = Object.keys(scores).filter(pid => scores[pid] === maxScore);
+      let teamScores: { [team: string]: number } | undefined;
+      let winnerTeam: number | undefined;
+      if (latest.teams) {
+        teamScores = { '1': 0, '2': 0 };
+        Object.keys(scores).forEach(pid => {
+          teamScores![String(latest.teams![pid] || 1)] += scores[pid];
+        });
+        winnerTeam = teamScores['1'] === teamScores['2'] ? 0 : teamScores['1'] > teamScores['2'] ? 1 : 2;
+      }
+      const maxScore = Math.max(...Object.values(scores));
+      const topPlayers = Object.keys(scores).filter(pid => scores[pid] === maxScore);
 
-    setGameState({
-      ...gameState,
-      phase: 'game_over',
-      endedEarly: true,
-      finalScores: scores,
-      gameWinnerId: topPlayers.length === 1 ? topPlayers[0] : null,
-      ...(teamScores ? { teamScores, winnerTeam } : {}),
-      playedCards: [],
-      turnDeadline: null,
-    }, true);
-    showNotification('Partita terminata: un giocatore ha lasciato', 'ERROR' as any);
+      setGameStateRef.current({
+        ...latest,
+        phase: 'game_over',
+        endedEarly: true,
+        finalScores: scores,
+        gameWinnerId: topPlayers.length === 1 ? topPlayers[0] : null,
+        ...(teamScores ? { teamScores, winnerTeam } : {}),
+        playedCards: [],
+        turnDeadline: null,
+      }, true);
+      showNotification('Partita terminata: un giocatore non è rientrato', 'ERROR' as any);
+    }, RECONNECT_GRACE_MS);
+    return () => clearTimeout(timer);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [amHost, gameState, players, activeMode]);
 
@@ -302,13 +450,18 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       showNotification("Aspetta la fine del turno", "WARNING" as any);
       return;
     }
-    const playerIndex = players.findIndex(p => p.id === currentPlayer.id);
-    if (playerIndex !== gameState.currentTurnPlayerIndex) {
+    // Il turno si determina dall'ordine dei posti (chiavi di playerHands),
+    // non dall'ordine della lista dei connessi, che può divergere dopo un rientro
+    const seatIds = Object.keys(gameState.playerHands);
+    const activeTurnPlayerId = gameState.turnOrder
+      ? gameState.turnOrder[gameState.playedCards.length]
+      : seatIds[gameState.currentTurnPlayerIndex];
+    if (activeTurnPlayerId !== currentPlayer.id) {
       showNotification("Non è il tuo turno!", "WARNING" as any);
       return;
     }
     RPC.call('playCard', { cardId: card.id }, RPC.Mode.HOST);
-  }, [currentPlayer, gameState, players, showNotification]);
+  }, [currentPlayer, gameState, showNotification]);
 
   const handleSwapTrump = useCallback((card: Card) => {
     if (!currentPlayer || !gameState) return;
@@ -340,8 +493,9 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
     try {
       const logic = createGameLogic(players, activeMode || GameMode.THREE_FOR_ALL);
       gameLogicRef.current = logic;
+      players.forEach(p => { seatPlayerMapRef.current[p.id] = p; });
       const initialState = logic.initializeGame();
-      setGameState(stampTurnDeadline(initialState), true);
+      setGameState(stampTurnDeadline(stampSeatOwners(initialState, players)), true);
     } catch (error) {
       console.error("Failed to start game:", error);
       showNotification("Impossibile avviare la partita", "ERROR" as any);
@@ -356,7 +510,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         const inGame = gameStateRef.current && gameStateRef.current.phase !== 'game_over';
         showNotification(
           inGame
-            ? `${name} ha lasciato — le sue carte verranno giocate automaticamente`
+            ? `${name} si è disconnesso — può rientrare, nel frattempo gioca in automatico`
             : `${name} ha lasciato la partita`,
           "ERROR" as any
         );
@@ -377,6 +531,45 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       return () => clearTimeout(timer);
     }
   }, [gameState?.phase, amHost]);
+
+  // ==================== RICONNESSIONE (LATO CHI RIENTRA) ====================
+  // Se c'è una partita e non ho un posto, provo a reclamare il mio vecchio
+  // posto tramite clientId. Ritento finché il reclaim non riesce o fallisce
+  // definitivamente (nessun posto mi appartiene: partita di altri).
+  const hasSeat = !!(gameState && currentPlayer && gameState.playerHands[currentPlayer.id]);
+  const [claimFailed, setClaimFailed] = useState(false);
+
+  useEffect(() => {
+    if (!gameState || !currentPlayer || hasSeat || claimFailed) return;
+    if (Object.keys(gameState.playerHands).length === 0) return;
+
+    let cancelled = false;
+    let failures = 0;
+    const tryClaim = async () => {
+      try {
+        const res = await RPC.call('claimSeat', { clientId: getClientId() }, RPC.Mode.HOST);
+        if (cancelled) return;
+        if (res === 'no_seat' || res === 'seat_taken' || res === 'invalid') {
+          failures += 1;
+          if (failures >= 3) setClaimFailed(true);
+        }
+        // 'ok' / 'already_seated': lo stato sincronizzato farà sparire l'overlay
+      } catch {
+        // host non raggiungibile o in migrazione: si ritenta
+      }
+    };
+    tryClaim();
+    const interval = setInterval(tryClaim, 2500);
+    return () => { cancelled = true; clearInterval(interval); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState === null, hasSeat, claimFailed, currentPlayer?.id]);
+
+  // Posti il cui occupante è attualmente disconnesso (visibile a tutti i client)
+  const disconnectedSeatNames = (gameState && gameState.phase !== 'game_over' && gameState.seatOwners)
+    ? Object.keys(gameState.seatOwners)
+        .filter(sid => !players.some(p => p.id === sid))
+        .map(sid => gameState.seatOwners![sid].name)
+    : [];
 
   const handleCopyCode = () => {
     if (roomCode) {
@@ -511,14 +704,22 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
           </PlayersSection>
 
           {amHost ? (
-            <StartButton onClick={handleStartGame} disabled={!canStart}>
-              {canStart
-                ? 'AVVIA PARTITA'
-                : players.length < (modeConfig?.minPlayers ?? 2)
-                  ? `MANCANO ${needed} GIOCATORI`
-                  : 'I TEAM DEVONO ESSERE 2v2'
-              }
-            </StartButton>
+            activeMode ? (
+              <StartButton onClick={handleStartGame} disabled={!canStart}>
+                {canStart
+                  ? 'AVVIA PARTITA'
+                  : players.length < (modeConfig?.minPlayers ?? 2)
+                    ? `MANCANO ${needed} GIOCATORI`
+                    : 'I TEAM DEVONO ESSERE 2v2'
+                }
+              </StartButton>
+            ) : (
+              // Host senza modalità: stanza ricreata dal prompt di ripresa
+              // dopo che la partita originale è terminata — via d'uscita pulita
+              <StartButton onClick={() => { clearLastRoom(); window.location.reload(); }}>
+                PARTITA NON TROVATA — TORNA ALLA HOME
+              </StartButton>
+            )
           ) : (
             <WaitingForHostText>
               <PulsingDot />
@@ -526,6 +727,34 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
             </WaitingForHostText>
           )}
         </LobbyContainer>
+      </LobbyWrapper>
+    );
+  }
+
+  // ==================== RECONNECT VIEW ====================
+  // Partita in corso ma non ho un posto: sto reclamando il mio (rientro),
+  // oppure sono un estraneo e non posso partecipare.
+  if (currentPlayer && !gameState.playerHands[currentPlayer.id] && Object.keys(gameState.playerHands).length > 0) {
+    return (
+      <LobbyWrapper>
+        <GlobalStyle />
+        <ReconnectCard>
+          {claimFailed ? (
+            <>
+              <ReconnectTitle>Partita in corso</ReconnectTitle>
+              <ReconnectText>Non c'è un posto per te in questa partita.</ReconnectText>
+              <ReconnectExitButton onClick={() => { clearLastRoom(); window.location.reload(); }}>
+                TORNA ALLA HOME
+              </ReconnectExitButton>
+            </>
+          ) : (
+            <>
+              <PulsingDot />
+              <ReconnectTitle>Rientro in partita…</ReconnectTitle>
+              <ReconnectText>Stiamo recuperando il tuo posto al tavolo</ReconnectText>
+            </>
+          )}
+        </ReconnectCard>
       </LobbyWrapper>
     );
   }
@@ -562,6 +791,12 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   return (
     <GameWrapper>
       <GlobalStyle />
+      {disconnectedSeatNames.length > 0 && (
+        <DisconnectBanner>
+          <PulsingDot />
+          In attesa che {disconnectedSeatNames.join(', ')} rientri…
+        </DisconnectBanner>
+      )}
       {gameUI}
     </GameWrapper>
   );
@@ -920,6 +1155,71 @@ const PulsingDot = styled.div`
   animation: ${hostPulse} 1.5s ease-in-out infinite;
 `;
 
+// ===== RECONNECT STYLES =====
+const ReconnectCard = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 12px;
+  background: ${DESIGN.colors.surfaces.containers};
+  border: 1px solid rgba(212,160,23,0.25);
+  border-radius: ${DESIGN.radius.containers};
+  padding: 32px 28px;
+  width: 100%;
+  max-width: 360px;
+  text-align: center;
+  animation: ${lobbyFadeIn} 300ms ease-out;
+`;
+
+const ReconnectTitle = styled.h2`
+  font-size: 22px;
+  font-weight: 700;
+  color: ${DESIGN.colors.text.primary};
+  margin: 0;
+`;
+
+const ReconnectText = styled.p`
+  font-size: 13px;
+  color: ${DESIGN.colors.text.secondary};
+  margin: 0;
+`;
+
+const ReconnectExitButton = styled.button`
+  margin-top: 8px;
+  padding: 12px 24px;
+  border-radius: ${DESIGN.radius.buttons};
+  border: none;
+  background: #d4a017;
+  color: #0a120a;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  cursor: pointer;
+  transition: transform 150ms ease-out;
+
+  &:hover { transform: translateY(-1px); }
+  &:active { transform: scale(0.97); }
+`;
+
+const DisconnectBanner = styled.div`
+  position: fixed;
+  top: 56px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  background: ${DESIGN.colors.surfaces.elevated};
+  border: 1px solid rgba(230,57,70,0.5);
+  border-radius: ${DESIGN.radius.buttons};
+  padding: 6px 14px;
+  font-size: 12px;
+  font-weight: 600;
+  color: ${DESIGN.colors.text.secondary};
+  z-index: 1900;
+  white-space: nowrap;
+`;
+
 // ===== QUICK JOIN POPUP STYLES =====
 const QuickJoinOverlay = styled.div`
   position: fixed;
@@ -1079,6 +1379,9 @@ export default function Home() {
   const [quickJoinName, setQuickJoinName] = useState('');
   const [quickJoinEmoji, setQuickJoinEmoji] = useState(AVATAR_EMOJIS[0]);
 
+  // Prompt "riprendi l'ultima partita" (riconnessione dopo refresh/crash)
+  const [resumeCode, setResumeCode] = useState<string | null>(null);
+
   const connect = useCallback(async (name: string, emoji: string, roomCode?: string, mode?: GameMode) => {
     setUsername(name);
     setAvatarEmoji(emoji);
@@ -1104,8 +1407,10 @@ export default function Home() {
       setPhase('connected');
     } catch (error: any) {
       console.error('insertCoin failed:', error);
+      // Evita che il prompt di ripresa continui a proporre una stanza inaccessibile
+      if (roomCode && readLastRoom() === roomCode) clearLastRoom();
       if (error?.message === 'ROOM_LIMIT_EXCEEDED') {
-        setConnectError('Stanza piena! Prova un altro codice.');
+        setConnectError('Stanza piena! Se ti stai riconnettendo, riprova tra qualche secondo.');
       } else {
         setConnectError(roomCode
           ? 'Impossibile partecipare. Controlla il codice e riprova.'
@@ -1141,6 +1446,16 @@ export default function Home() {
       } else {
         setPendingRefcode(code);
       }
+      return;
+    }
+
+    // Nessun refcode: se c'è una partita recente e credenziali salvate,
+    // proponi di rientrare (riconnessione dopo refresh o crash)
+    const lastRoom = readLastRoom();
+    const savedName = localStorage.getItem(LS_USERNAME_KEY);
+    const savedEmoji = localStorage.getItem(LS_EMOJI_KEY);
+    if (lastRoom && savedName && savedEmoji) {
+      setResumeCode(lastRoom);
     }
   }, [connect]);
 
@@ -1201,6 +1516,40 @@ export default function Home() {
               </QuickJoinCancelBtn>
               <QuickJoinSubmitBtn onClick={handleQuickJoin} disabled={!canJoin}>
                 Partecipa
+              </QuickJoinSubmitBtn>
+            </QuickJoinActions>
+          </QuickJoinCard>
+        </QuickJoinOverlay>
+      </>
+    );
+  }
+
+  // ===== RESUME PROMPT (riconnessione all'ultima partita) =====
+  if (resumeCode && phase === 'hero') {
+    return (
+      <>
+        <GlobalStyle />
+        <QuickJoinOverlay>
+          <QuickJoinCard>
+            <QuickJoinTitle>Riprendi la partita?</QuickJoinTitle>
+            <QuickJoinSubtitle>Stanza: {resumeCode}</QuickJoinSubtitle>
+            <p style={{ fontSize: '13px', color: DESIGN.colors.text.secondary, textAlign: 'center', margin: '0 0 20px' }}>
+              Risulti in una partita recente. Vuoi rientrare al tuo posto?
+            </p>
+            <QuickJoinActions>
+              <QuickJoinCancelBtn onClick={() => { clearLastRoom(); setResumeCode(null); }}>
+                No, nuova partita
+              </QuickJoinCancelBtn>
+              <QuickJoinSubmitBtn onClick={() => {
+                const savedName = localStorage.getItem(LS_USERNAME_KEY);
+                const savedEmoji = localStorage.getItem(LS_EMOJI_KEY);
+                const code = resumeCode;
+                setResumeCode(null);
+                if (savedName && savedEmoji && code) {
+                  connect(savedName, savedEmoji, code);
+                }
+              }}>
+                RIENTRA
               </QuickJoinSubmitBtn>
             </QuickJoinActions>
           </QuickJoinCard>

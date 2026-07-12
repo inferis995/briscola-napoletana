@@ -2,7 +2,8 @@ import { PlayerState } from "playroomkit";
 import {
   Card,
   Suit,
-  BRISCOLA_VALUE_ORDER
+  createDeck,
+  shuffleDeck
 } from '@/components/Card';
 import {
   BaseGameLogic,
@@ -35,6 +36,44 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
       throw new Error("ThreeForAllGameLogic requires exactly 3 players");
     }
     super(players, ThreeForAllGameLogic.CONFIG);
+  }
+
+  /**
+   * Regola classica della briscola a 3: si toglie un 2 (carta da 0 punti)
+   * così il mazzo scende a 39 carte e i 120 punti restano tutti in gioco.
+   * 38 carte dopo la briscola: 9 distribuite (3 a testa), 29 nel tallone.
+   * La briscola scoperta viene pescata per ultima: 29 + 1 = 30 → 10 giri di pesca.
+   */
+  initializeGame(): GameState {
+    const fullDeck = shuffleDeck(createDeck().filter(c => c.id !== 'coppe_2'));
+    const trumpCard = fullDeck.pop()!;
+
+    const { newDeck, hands } = this.dealCards(fullDeck);
+
+    const stacks: { [playerId: string]: Card[] } = {};
+    this.players.forEach(player => {
+      stacks[player.id] = [];
+    });
+
+    this.state = {
+      phase: 'playing',
+      deck: newDeck,
+      trumpCard,
+      trumpSuit: trumpCard.suit,
+      playerHands: hands,
+      playerStacks: stacks,
+      playedCards: [],
+      currentTurnPlayerIndex: 0,
+      roundNumber: 1,
+      roundWinnerId: null,
+      finalScores: {},
+      gameWinnerId: null,
+      lastSwapPlayerId: null,
+      roundHistory: [],
+      smazzataNumber: 1,
+    };
+
+    return this.getState();
   }
 
   /**
@@ -123,14 +162,25 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
       newHands[pid] = [...this.state.playerHands[pid]];
     }
 
-    if (newDeck.length > 0) {
+    let trumpCard = this.state.trumpCard;
+
+    if (newDeck.length > 0 || trumpCard) {
       const winnerIndex = this.players.findIndex(p => p.id === winnerId);
       for (let i = 0; i < this.players.length; i++) {
         const playerIndex = (winnerIndex + i) % this.players.length;
         const pid = this.players[playerIndex].id;
-        while (newDeck.length > 0 && newHands[pid].length < this.config.cardsPerPlayer) {
-          const card = newDeck.pop()!;
-          newHands[pid].push(card);
+        while (newHands[pid].length < this.config.cardsPerPlayer) {
+          if (newDeck.length > 0) {
+            const card = newDeck.pop()!;
+            newHands[pid].push(card);
+          } else if (trumpCard) {
+            // L'ultima carta pescata è la briscola scoperta
+            newHands[pid].push(trumpCard);
+            trumpCard = null;
+            break;
+          } else {
+            break;
+          }
         }
       }
     }
@@ -138,8 +188,9 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
     // Check game over
     const allHandsEmpty = Object.values(newHands).every(hand => hand.length === 0);
     const deckEmpty = newDeck.length === 0;
+    const noTrump = trumpCard === null;
 
-    if (allHandsEmpty && deckEmpty) {
+    if (allHandsEmpty && deckEmpty && noTrump) {
       const scores: { [playerId: string]: number } = {};
       Object.keys(newStacks).forEach(pid => {
         scores[pid] = newStacks[pid].reduce((total, card) => total + card.score, 0);
@@ -152,6 +203,7 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
         ...this.state,
         phase: 'game_over',
         deck: newDeck,
+        trumpCard,
         playerHands: newHands,
         playerStacks: newStacks,
         playedCards: [],
@@ -165,6 +217,7 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
         ...this.state,
         phase: 'playing',
         deck: newDeck,
+        trumpCard,
         playerHands: newHands,
         playerStacks: newStacks,
         playedCards: [],
@@ -189,6 +242,6 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
    * Get game mode description
    */
   getModeDescription(): string {
-    return "3 players compete individually. Highest card wins the round and all played cards.";
+    return "3 giocatori, ognuno per sé. La carta più alta vince la presa.";
   }
 }

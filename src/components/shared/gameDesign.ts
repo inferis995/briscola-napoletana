@@ -194,6 +194,7 @@ export const swapGlow = keyframes`
 
 // ===== SOUND EFFECTS =====
 import { Howl } from 'howler';
+import { isSoundEnabled } from './soundEffects';
 
 let cardFlipHowl: Howl | null = null;
 
@@ -215,6 +216,7 @@ const getCardFlipHowl = (): Howl => {
  */
 export const playCardFlipSound = (): void => {
   try {
+    if (!isSoundEnabled()) return;
     const howl = getCardFlipHowl();
     const id = howl.play();
     // Slight random rate variation: 0.94 to 1.06

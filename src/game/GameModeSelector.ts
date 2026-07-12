@@ -32,25 +32,25 @@ const GAME_MODES: GameModeConfig[] = [
     mode: GameMode.THREE_FOR_ALL,
     minPlayers: 3,
     maxPlayers: 3,
-    description: '3 players compete individually'
+    description: '3 giocatori, ognuno per sé'
   },
   {
     mode: GameMode.ONE_ON_ONE,
     minPlayers: 2,
     maxPlayers: 2,
-    description: 'Head-to-head competition'
+    description: 'Uno contro uno'
   },
   {
     mode: GameMode.TWO_VS_TWO,
     minPlayers: 4,
     maxPlayers: 4,
-    description: 'Two teams of two players'
+    description: 'Due squadre da due'
   },
   {
     mode: GameMode.FOUR_FOR_ALL,
     minPlayers: 4,
     maxPlayers: 4,
-    description: '4 players compete individually'
+    description: '4 giocatori, ognuno per sé'
   }
 ];
 

@@ -4,12 +4,11 @@ import { CardComponent } from '@/components/Card';
 import { MatchHistoryButton } from '@/components/MatchHistory';
 import { RulesPopup, RulesIcon } from '@/components/RulesPopup';
 import { QuickChatPopup, QuickChatBubble, QuickChatIcon } from '@/components/QuickChat';
-import { Wifi, WifiOff } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, VolumeX } from 'lucide-react';
 import {
   DESIGN,
   borderGlow,
   borderFadeOut,
-  fadeOut,
   cardEntrance,
   swapGlow,
   cardColors,
@@ -21,6 +20,9 @@ import {
   TEAM_COLORS,
 } from '@/components/shared/gameDesign';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
+import { TimerChip, useTurnCountdown } from '@/components/shared/TurnTimer';
+import { useGameFeedback } from '@/components/shared/useGameFeedback';
+import { isSoundEnabled, setSoundEnabled } from '@/components/shared/soundEffects';
 import packageJson from '../../package.json';
 
 // ===== MOBILE STYLED COMPONENTS =====
@@ -212,13 +214,6 @@ const PlayerPillStatValue = styled.span`
   font-weight: 600;
 `;
 
-const YouBadge = styled.span`
-  font-size: 8px;
-  color: ${DESIGN.colors.accents.cyan};
-  letter-spacing: 0.5px;
-  font-weight: 600;
-`;
-
 // Trump Card Area (inline in top bar)
 const TrumpMini = styled.div`
     width: 48px;
@@ -249,7 +244,7 @@ const PlayAreaSlots = styled.div<{ playerCount?: number }>`
   padding: 0 ${DESIGN.spacing.xs};
 `;
 
-const PlaySlot = styled.div<{ isEmpty?: boolean; isWinner?: boolean; isFadingOut?: boolean }>`
+const PlaySlot = styled.div<{ isEmpty?: boolean; isWinner?: boolean; isFadingOut?: boolean; collectDx?: number }>`
   position: relative;
   width: 90px;
   aspect-ratio: 0.65;
@@ -259,7 +254,7 @@ const PlaySlot = styled.div<{ isEmpty?: boolean; isWinner?: boolean; isFadingOut
   align-items: center;
   justify-content: center;
   transition: all 200ms ease-out;
-  
+
   ${props => props.isWinner && css`
     &::before {
       content: '';
@@ -273,9 +268,12 @@ const PlaySlot = styled.div<{ isEmpty?: boolean; isWinner?: boolean; isFadingOut
       z-index: 10;
     }
   `}
-  
+
+  /* Raccolta della presa: le carte convergono sulla carta vincente e svaniscono */
   ${props => props.isFadingOut && css`
-    animation: ${fadeOut} 250ms ease-out forwards;
+    transform: translateX(${props.collectDx ?? 0}px) translateY(-6px) scale(0.55);
+    opacity: 0;
+    transition: transform 450ms cubic-bezier(0.55, 0, 0.8, 0.4), opacity 420ms ease-in;
   `}
 `;
 
@@ -525,7 +523,27 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
 
   // ===== ROUND WINNER STATE =====
   const roundWinnerId = gameState.phase === 'round_complete' ? gameState.roundWinnerId : null;
+  const winnerSlotIndex = roundWinnerId
+    ? playedCards.findIndex(pc => pc.playerId === roundWinnerId)
+    : -1;
   const [isFadingOut, setIsFadingOut] = useState(false);
+
+  // Slot in tavola: basati sui posti della partita (non sui connessi attuali)
+  const seatCount = Math.max(players.length, Object.keys(gameState.playerHands).length);
+  // Distanza tra slot per l'animazione di raccolta (larghezza 90 + gap)
+  const slotStep = seatCount >= 4 ? 94 : 106;
+
+  // Timer di turno + feedback audio/tattile
+  const secondsLeft = useTurnCountdown(gameState.turnDeadline, gameState.phase === 'playing', isCurrentPlayerTurn);
+  useGameFeedback(gameState, currentPlayerId, isCurrentPlayerTurn);
+
+  // Toggle audio (inizializzato in effect per evitare mismatch SSR)
+  const [soundOn, setSoundOn] = useState(true);
+  useEffect(() => { setSoundOn(isSoundEnabled()); }, []);
+  const toggleSound = () => {
+    setSoundEnabled(!soundOn);
+    setSoundOn(!soundOn);
+  };
 
   // Trump swap detection
   const [trumpSwapped, setTrumpSwapped] = useState(false);
@@ -575,8 +593,10 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
     if (newSwapper && newSwapper !== prevSwapPlayerRef.current) {
       setSwapHighlightId(newSwapper);
       const swapPlayer = players.find(p => p.id === newSwapper);
-      const name = swapPlayer ? getPlayerName(swapPlayer) : 'A player';
-      setSwapNotification(`${newSwapper === currentPlayerId ? 'You' : name} swapped with the trump!`);
+      const name = swapPlayer ? getPlayerName(swapPlayer) : 'Un giocatore';
+      setSwapNotification(newSwapper === currentPlayerId
+        ? 'Hai scambiato con la briscola!'
+        : `${name} ha scambiato con la briscola!`);
       const timer = setTimeout(() => {
         setSwapHighlightId(null);
         setSwapNotification(null);
@@ -611,9 +631,10 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
   useEffect(() => {
     if (gameState.phase === 'round_complete') {
       setIsFadingOut(false);
+      // La raccolta parte a 1.1s (dura 450ms), l'host risolve a 1.6s
       const fadeTimer = setTimeout(() => {
         setIsFadingOut(true);
-      }, 1200);
+      }, 1100);
       return () => clearTimeout(fadeTimer);
     } else {
       setIsFadingOut(false);
@@ -625,7 +646,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
     if (playedCards.length <= index) return '';
     const player = players.find(p => p.id === playedCards[index].playerId);
     if (!player) return '';
-    return player.id === currentPlayerId ? 'You' : getPlayerName(player);
+    return player.id === currentPlayerId ? 'Tu' : getPlayerName(player);
   };
 
   if (gameState.phase === 'smazzata_complete') {
@@ -681,7 +702,12 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
       <GameContainer>
         <GameOverOverlay>
           <GameOverDialog>
-            <GameOverTitle>PARTITA FINITA</GameOverTitle>
+            <GameOverTitle>{gameState.endedEarly ? 'PARTITA INTERROTTA' : 'PARTITA FINITA'}</GameOverTitle>
+            {gameState.endedEarly && (
+              <div style={{ margin: '-4px 0 12px', fontSize: '12px', color: DESIGN.colors.accents.pink, fontWeight: 600 }}>
+                Un giocatore ha lasciato — punteggi al momento dell'interruzione
+              </div>
+            )}
             {isTeamMode ? (
               <>
                 <WinnerInfo>
@@ -831,6 +857,9 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
             <RulesIconButton onClick={() => setShowQuickChat(true)} title="Chat veloce">
               <QuickChatIcon />
             </RulesIconButton>
+            <RulesIconButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
+              {soundOn ? <Volume2 /> : <VolumeX />}
+            </RulesIconButton>
             {isOnline
               ? <Wifi size={12} color={DESIGN.colors.accents.green} strokeWidth={2} />
               : <WifiOff size={12} color={DESIGN.colors.accents.pink} strokeWidth={2} />
@@ -839,7 +868,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
         </div>
         <TopBarRight>
           <MiniDeckInfo>
-            Deck <MiniDeckCount>{gameState.deck.length}</MiniDeckCount>
+            Mazzo <MiniDeckCount>{gameState.deck.length}</MiniDeckCount>
           </MiniDeckInfo>
           {gameState.trumpCard && (
             <div style={{ position: 'relative' }}>
@@ -875,7 +904,6 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
                 <PlayerPillInfo>
                   <PlayerPillName>
                     {isYou ? 'Tu' : getPlayerName(player)}
-                    {isYou && <YouBadge> TU</YouBadge>}
                   </PlayerPillName>
                   <PlayerPillStats>
                     {isTeamMode && teams[player.id] && (
@@ -884,6 +912,9 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
                   </PlayerPillStats>
                 </PlayerPillInfo>
               )}
+              {isActive && gameState.phase === 'playing' && secondsLeft !== null && (
+                <TimerChip urgent={secondsLeft <= 5} style={{ marginLeft: 4 }}>{secondsLeft}s</TimerChip>
+              )}
             </PlayerPill>
           );
         })}
@@ -891,8 +922,8 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
 
       {/* Center Play Area */}
       <PlayArea>
-        <PlayAreaSlots playerCount={players.length}>
-          {players.map((_, slotIndex) => {
+        <PlayAreaSlots playerCount={seatCount}>
+          {Array.from({ length: seatCount }).map((_, slotIndex) => {
             const isSlotWinner = roundWinnerId === playedCards[slotIndex]?.playerId;
             return (
             <PlaySlot
@@ -900,6 +931,7 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
               isEmpty={playedCards.length < slotIndex + 1}
               isWinner={isSlotWinner}
               isFadingOut={isFadingOut}
+              collectDx={winnerSlotIndex >= 0 ? (winnerSlotIndex - slotIndex) * slotStep : 0}
             >
               {playedCards.length > slotIndex && (
                 <PlayedCardWrapper>
@@ -923,6 +955,9 @@ export const MobileGameUI: React.FC<GameUIProps> = ({
       <BottomArea>
         <HandLabel>
           {isCurrentPlayerTurn ? 'Tocca a te — Scegli una carta' : 'In attesa...'}
+          {isCurrentPlayerTurn && secondsLeft !== null && (
+            <TimerChip urgent={secondsLeft <= 5} style={{ marginLeft: 6 }}>{secondsLeft}s</TimerChip>
+          )}
         </HandLabel>
         <HandRow>
           {playerHand.map((card, idx) => {

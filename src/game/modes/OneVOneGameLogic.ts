@@ -284,6 +284,6 @@ export class OneVOneGameLogic extends BaseGameLogic {
    * Get game mode description
    */
   getModeDescription(): string {
-    return "2 players compete head-to-head. Highest card wins the round and all played cards.";
+    return "2 giocatori uno contro l'altro. La carta più alta vince la presa.";
   }
 }

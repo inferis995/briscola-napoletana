@@ -49,6 +49,10 @@ export interface GameState {
   teamScores?: { [team: string]: number };
   turnOrder?: string[];
   winnerTeam?: number;
+  // Turn timer: epoch ms entro cui il giocatore di turno deve giocare (host clock)
+  turnDeadline?: number | null;
+  // Partita terminata in anticipo (es. un giocatore ha abbandonato)
+  endedEarly?: boolean;
   // 2 smazzate fields (1v1 and 2v2 only)
   smazzataNumber: number;
   smazzata1Scores?: { [playerId: string]: number };

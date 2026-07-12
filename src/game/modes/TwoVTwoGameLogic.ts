@@ -355,6 +355,6 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
   }
 
   getModeDescription(): string {
-    return "Two teams of two. Alternate placement, team with most points wins.";
+    return "Due squadre da due. Vince la squadra con più punti.";
   }
 }

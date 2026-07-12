@@ -13,7 +13,7 @@ import {
   RPC,
   getRoomCode,
 } from "playroomkit";
-import { Card } from '@/components/Card';
+import { Card, BRISCOLA_VALUE_ORDER } from '@/components/Card';
 import { useNotification } from '@/components/Notification';
 import { GameState, BaseGameLogic } from '@/game/BaseGameLogic';
 import { GameMode, getGameModeConfig, createGameLogic } from '@/game/GameModeSelector';
@@ -26,6 +26,27 @@ import { DESIGN, getPlayerName, getPlayerEmoji, getPlayerTeam, TEAM_COLORS } fro
 
 // ===== TYPES =====
 type AppPhase = 'hero' | 'connecting' | 'connected';
+
+// ===== TURN TIMER =====
+const TURN_TIMEOUT_MS = 30000;
+
+// Imposta la deadline del turno (orologio host) quando si sta giocando
+const stampTurnDeadline = (state: GameState): GameState => ({
+  ...state,
+  turnDeadline: state.phase === 'playing' ? Date.now() + TURN_TIMEOUT_MS : null,
+});
+
+// Carta giocata in automatico allo scadere del timer:
+// meno punti possibile, preferendo le non-briscole, poi la più debole
+const chooseAutoCard = (hand: Card[], trumpSuit: string | null): Card => {
+  return [...hand].sort((a, b) => {
+    if (a.score !== b.score) return a.score - b.score;
+    const aTrump = a.suit === trumpSuit ? 1 : 0;
+    const bTrump = b.suit === trumpSuit ? 1 : 0;
+    if (aTrump !== bTrump) return aTrump - bTrump;
+    return BRISCOLA_VALUE_ORDER.indexOf(b.value) - BRISCOLA_VALUE_ORDER.indexOf(a.value);
+  })[0];
+};
 
 // ===== CONNECTED APP (LOBBY + GAME) =====
 const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?: GameMode }> = ({ username, avatarEmoji, gameMode }) => {
@@ -47,12 +68,15 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   const gameLogicRef = useRef<BaseGameLogic | null>(null);
   const gameStateRef = useRef<GameState | null>(null);
   const setGameStateRef = useRef(setGameState);
-  const resolveTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const profileSetRef = useRef(false);
   const gameCountRef = useRef(0);
+  const playersRef = useRef(players);
+  const activeModeRef = useRef<GameMode | null>(null);
+  const endedEarlyRef = useRef(false);
 
   useEffect(() => { gameStateRef.current = gameState; }, [gameState]);
   useEffect(() => { setGameStateRef.current = setGameState; }, [setGameState]);
+  useEffect(() => { playersRef.current = players; }, [players]);
 
   // Set player profile on mount
   useEffect(() => {
@@ -78,6 +102,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   const activeMode = (gameMode || sharedMode || null) as GameMode | null;
   const modeConfig = activeMode ? getGameModeConfig(activeMode) : undefined;
   const maxPlayers = modeConfig?.maxPlayers ?? 4;
+  useEffect(() => { activeModeRef.current = activeMode; }, [activeMode]);
 
   // Get room code
   useEffect(() => {
@@ -109,20 +134,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       logic.loadState(currentState);
       const newState = logic.playCard(caller.id, data.cardId);
       if (!newState) return;
-      setGameStateRef.current(newState, true);
-
-      if (newState.phase === 'round_complete') {
-        if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
-        resolveTimerRef.current = setTimeout(() => {
-          const latestState = gameStateRef.current;
-          if (!latestState || latestState.phase !== 'round_complete') return;
-          const latestLogic = gameLogicRef.current;
-          if (!latestLogic) return;
-          latestLogic.loadState(latestState);
-          const resolvedState = latestLogic.resolveRound();
-          setGameStateRef.current(resolvedState, true);
-        }, 1600);
-      }
+      setGameStateRef.current(stampTurnDeadline(newState), true);
       return "ok";
     });
 
@@ -140,8 +152,17 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
 
     RPC.register('playAgain', async (_data: any, _caller: any) => {
       if (!isHost()) return;
-      const logic = gameLogicRef.current;
-      if (!logic) return;
+      let logic = gameLogicRef.current;
+      if (!logic) {
+        // Host migrato senza logica (es. partita chiusa in anticipo): prova a ricrearla
+        try {
+          if (!activeModeRef.current) return;
+          logic = createGameLogic(playersRef.current, activeModeRef.current);
+          gameLogicRef.current = logic;
+        } catch {
+          return;
+        }
+      }
       gameCountRef.current += 1;
       const newState = logic.initializeGame();
       // Rotate starting player each game
@@ -156,7 +177,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
         newState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPid, newState.teams, allPlayers);
       }
 
-      setGameStateRef.current(newState, true);
+      setGameStateRef.current(stampTurnDeadline(newState), true);
       return "ok";
     });
 
@@ -165,14 +186,114 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const logic = gameLogicRef.current;
       if (!logic) return;
       const newState = logic.startSecondSmazzata();
-      setGameStateRef.current(newState, true);
+      setGameStateRef.current(stampTurnDeadline(newState), true);
       return "ok";
     });
-
-    return () => {
-      if (resolveTimerRef.current) clearTimeout(resolveTimerRef.current);
-    };
   }, []);
+
+  // Host: risolve la presa dopo la pausa visiva. Vive in un effect (non nel
+  // timer dell'RPC) così sopravvive anche a una migrazione dell'host.
+  useEffect(() => {
+    if (!amHost || !gameState || gameState.phase !== 'round_complete') return;
+    const timer = setTimeout(() => {
+      const latestState = gameStateRef.current;
+      const logic = gameLogicRef.current;
+      if (!latestState || latestState.phase !== 'round_complete' || !logic) return;
+      logic.loadState(latestState);
+      const resolvedState = logic.resolveRound();
+      setGameStateRef.current(stampTurnDeadline(resolvedState), true);
+    }, 1600);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amHost, gameState?.phase, gameState?.roundNumber]);
+
+  // Host: allo scadere del timer di turno gioca in automatico una carta
+  // per il giocatore di turno (evita che un AFK/disconnesso blocchi tutti)
+  useEffect(() => {
+    if (!amHost || !gameState) return;
+    if (gameState.phase !== 'playing' || !gameState.turnDeadline) return;
+    const deadline = gameState.turnDeadline;
+    const timer = setTimeout(() => {
+      const latestState = gameStateRef.current;
+      const logic = gameLogicRef.current;
+      if (!latestState || !logic) return;
+      if (latestState.phase !== 'playing' || latestState.turnDeadline !== deadline) return;
+      const pid = latestState.turnOrder
+        ? latestState.turnOrder[latestState.playedCards.length]
+        : logic.getPlayers()[latestState.currentTurnPlayerIndex]?.id;
+      const hand = pid ? latestState.playerHands[pid] : undefined;
+      if (!pid || !hand || hand.length === 0) return;
+      const card = chooseAutoCard(hand, latestState.trumpSuit);
+      logic.loadState(latestState);
+      const newState = logic.playCard(pid, card.id);
+      if (!newState) return;
+      setGameStateRef.current(stampTurnDeadline(newState), true);
+    }, Math.max(0, deadline - Date.now()) + 200);
+    return () => clearTimeout(timer);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amHost, gameState?.phase, gameState?.turnDeadline]);
+
+  // Nuovo host dopo migrazione: ricostruisce la logica dallo stato condiviso.
+  // Se manca un giocatore (chi è uscito era l'host), chiude la partita
+  // mostrando i punteggi raccolti invece di lasciare il tavolo congelato.
+  useEffect(() => {
+    if (!amHost || !gameState || gameLogicRef.current) return;
+    const activePhases = ['playing', 'round_complete', 'revealing_hands', 'smazzata_complete'];
+    if (!activePhases.includes(gameState.phase)) return;
+    const seatIds = Object.keys(gameState.playerHands);
+    if (seatIds.length === 0) return;
+
+    const allPresent = seatIds.every(id => players.some(p => p.id === id));
+    if (allPresent && activeMode) {
+      try {
+        // L'ordine di inserimento in playerHands riflette l'ordine originale dei giocatori
+        const ordered = seatIds.map(id => players.find(p => p.id === id)!);
+        const logic = createGameLogic(ordered, activeMode);
+        logic.loadState(gameState);
+        gameLogicRef.current = logic;
+        return;
+      } catch (error) {
+        console.error('Ricostruzione logica di gioco fallita:', error);
+      }
+    }
+
+    if (endedEarlyRef.current) return;
+    endedEarlyRef.current = true;
+
+    const scores: { [pid: string]: number } = {};
+    seatIds.forEach(pid => {
+      scores[pid] = (gameState.playerStacks[pid] || []).reduce((t, c) => t + c.score, 0);
+    });
+    let teamScores: { [team: string]: number } | undefined;
+    let winnerTeam: number | undefined;
+    if (gameState.teams) {
+      teamScores = { '1': 0, '2': 0 };
+      Object.keys(scores).forEach(pid => {
+        teamScores![String(gameState.teams![pid] || 1)] += scores[pid];
+      });
+      winnerTeam = teamScores['1'] === teamScores['2'] ? 0 : teamScores['1'] > teamScores['2'] ? 1 : 2;
+    }
+    const maxScore = Math.max(...Object.values(scores));
+    const topPlayers = Object.keys(scores).filter(pid => scores[pid] === maxScore);
+
+    setGameState({
+      ...gameState,
+      phase: 'game_over',
+      endedEarly: true,
+      finalScores: scores,
+      gameWinnerId: topPlayers.length === 1 ? topPlayers[0] : null,
+      ...(teamScores ? { teamScores, winnerTeam } : {}),
+      playedCards: [],
+      turnDeadline: null,
+    }, true);
+    showNotification('Partita terminata: un giocatore ha lasciato', 'ERROR' as any);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [amHost, gameState, players, activeMode]);
+
+  // Permette una nuova chiusura anticipata dopo che una nuova partita è iniziata
+  useEffect(() => {
+    if (gameState?.phase === 'playing') endedEarlyRef.current = false;
+  }, [gameState?.phase]);
 
   // Handle card play
   const handleCardPlay = useCallback((card: Card) => {
@@ -220,7 +341,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const logic = createGameLogic(players, activeMode || GameMode.THREE_FOR_ALL);
       gameLogicRef.current = logic;
       const initialState = logic.initializeGame();
-      setGameState(initialState, true);
+      setGameState(stampTurnDeadline(initialState), true);
     } catch (error) {
       console.error("Failed to start game:", error);
       showNotification("Impossibile avviare la partita", "ERROR" as any);
@@ -231,7 +352,14 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
   useEffect(() => {
     const unsubscribe = onPlayerJoin((playerState: any) => {
       playerState.onQuit(() => {
-        showNotification("Un giocatore ha lasciato la partita!", "ERROR" as any);
+        const name = getPlayerName(playerState) || 'Un giocatore';
+        const inGame = gameStateRef.current && gameStateRef.current.phase !== 'game_over';
+        showNotification(
+          inGame
+            ? `${name} ha lasciato — le sue carte verranno giocate automaticamente`
+            : `${name} ha lasciato la partita`,
+          "ERROR" as any
+        );
       });
     });
     return unsubscribe;
@@ -244,7 +372,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       const timer = setTimeout(() => {
         const latestState = gameStateRef.current;
         if (!latestState || latestState.phase !== 'revealing_hands') return;
-        setGameStateRef.current({ ...latestState, phase: 'playing' }, true);
+        setGameStateRef.current(stampTurnDeadline({ ...latestState, phase: 'playing' }), true);
       }, 5000);
       return () => clearTimeout(timer);
     }
@@ -340,7 +468,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
                   </LobbyPlayerAvatar>
                   <PlayerNameText>
                     {name}
-                    {isYou && <YouTag>YOU</YouTag>}
+                    {isYou && <YouTag>TU</YouTag>}
                   </PlayerNameText>
                   {is2v2 && (
                     isYou ? (
@@ -943,7 +1071,7 @@ export default function Home() {
   const [avatarEmoji, setAvatarEmoji] = useState('');
   const [gameMode, setGameMode] = useState<GameMode | undefined>(undefined);
   const [connectError, setConnectError] = useState<string | null>(null);
-  const [connectingText, setConnectingText] = useState('Connecting');
+  const [connectingText, setConnectingText] = useState('Connessione');
   const [initialRoomCode, setInitialRoomCode] = useState<string | undefined>(undefined);
 
   // Quick join popup state (for invite links when user has no saved credentials)

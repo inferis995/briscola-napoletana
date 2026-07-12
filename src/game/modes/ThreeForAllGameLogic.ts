@@ -101,7 +101,7 @@ export class ThreeForAllGameLogic extends BaseGameLogic {
     ];
 
     const newHands = { ...this.state.playerHands, [playerId]: newHand };
-    const nextTurn = (this.state.currentTurnPlayerIndex + 1) % this.players.length;
+    const nextTurn = (this.state.currentTurnPlayerIndex - 1 + this.players.length) % this.players.length;
 
     // Check if round is complete
     if (newPlayedCards.length === this.players.length) {

@@ -67,9 +67,9 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
 
     return [
       startPlayerId,
-      otherTeamPlayers[0]?.id,
-      sameTeamPlayers[0]?.id,
       otherTeamPlayers[1]?.id,
+      sameTeamPlayers[0]?.id,
+      otherTeamPlayers[0]?.id,
     ].filter(Boolean) as string[];
   }
 

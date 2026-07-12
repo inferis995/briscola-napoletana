@@ -627,24 +627,27 @@ const assignSeats = (players: any[], currentPlayerId: string, teams?: { [id: str
     seats.set(players[myIndex].id, 'bottom');
     seats.set(players[(myIndex + 1) % n].id, 'top');
   } else if (n === 3) {
+    // Anti-orario: tu in basso, il prossimo (in senso anti-orario) a destra
     seats.set(players[myIndex].id, 'bottom');
-    seats.set(players[(myIndex + 1) % n].id, 'topRight');
-    seats.set(players[(myIndex + 2) % n].id, 'topLeft');
+    seats.set(players[(myIndex - 1 + n) % n].id, 'topRight');
+    seats.set(players[(myIndex - 2 + n) % n].id, 'topLeft');
   } else if (n === 4) {
-    // 2v2: teammates face each other
+    // 2v2: anti-orario. Tu basso, compagno alto, avversari lati
+    // Il prossimo in senso anti-orario dal basso va a DESTRA
     if (teams) {
       const myTeam = teams[currentPlayerId];
       const teammate = players.find(p => p.id !== currentPlayerId && teams[p.id] === myTeam);
       const opponents = players.filter(p => teams[p.id] !== myTeam);
       seats.set(currentPlayerId, 'bottom');
       if (teammate) seats.set(teammate.id, 'top');
-      if (opponents[0]) seats.set(opponents[0].id, 'left');
-      if (opponents[1]) seats.set(opponents[1].id, 'right');
+      // Anti-orario: il primo avversario a destra, il secondo a sinistra
+      if (opponents[0]) seats.set(opponents[0].id, 'right');
+      if (opponents[1]) seats.set(opponents[1].id, 'left');
     } else {
       seats.set(players[myIndex].id, 'bottom');
-      seats.set(players[(myIndex + 1) % n].id, 'left');
-      seats.set(players[(myIndex + 2) % n].id, 'top');
-      seats.set(players[(myIndex + 3) % n].id, 'right');
+      seats.set(players[(myIndex - 1 + n) % n].id, 'right');
+      seats.set(players[(myIndex - 2 + n) % n].id, 'top');
+      seats.set(players[(myIndex - 3 + n) % n].id, 'left');
     }
   }
 

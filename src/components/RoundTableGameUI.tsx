@@ -20,7 +20,6 @@ import {
 } from '@/components/shared/gameDesign';
 import { useTurnCountdown, TimerChip } from '@/components/shared/TurnTimer';
 import { useGameFeedback } from '@/components/shared/useGameFeedback';
-import { useCountUp } from '@/components/shared/useCountUp';
 import { isSoundEnabled, setSoundEnabled } from '@/components/shared/soundEffects';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
 
@@ -67,11 +66,15 @@ const TableContainer = styled.div`
   display: flex;
   flex-direction: column;
 
+  /* Luce dall'alto + vignettatura + texture */
   &::before {
     content: '';
     position: absolute;
     inset: 0;
-    background-image: url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='0.5' fill='%23ffffff' opacity='0.02'/%3E%3C/svg%3E");
+    background-image:
+      radial-gradient(ellipse at 50% -10%, rgba(255, 240, 190, 0.06) 0%, transparent 55%),
+      radial-gradient(ellipse at center, transparent 58%, rgba(0, 0, 0, 0.5) 100%),
+      url("data:image/svg+xml,%3Csvg width='4' height='4' viewBox='0 0 4 4' xmlns='http://www.w3.org/2000/svg'%3E%3Ccircle cx='2' cy='2' r='0.5' fill='%23ffffff' opacity='0.02'/%3E%3C/svg%3E");
     pointer-events: none;
     z-index: 0;
   }
@@ -161,128 +164,223 @@ const FeltTable = styled.div`
   width: min(92%, 720px);
   height: min(72%, 480px);
   background:
-    radial-gradient(ellipse at 40% 30%, rgba(255,255,255,0.06) 0%, transparent 50%),
-    radial-gradient(ellipse at center, #1e6e3f 0%, #134d2c 50%, #0a3318 90%, #06210f 100%);
+    radial-gradient(ellipse at 38% 28%, rgba(255, 255, 255, 0.07) 0%, transparent 55%),
+    radial-gradient(ellipse at center, #1f7343 0%, #14522f 48%, #0b3a1c 82%, #072812 100%);
   border-radius: 50%;
-  border: 8px solid #2a1a0a;
   box-shadow:
-    inset 0 0 100px rgba(0,0,0,0.6),
-    inset 0 0 30px rgba(0,0,0,0.4),
-    inset 0 2px 4px rgba(255,255,255,0.08),
-    0 0 0 2px #4a3015,
-    0 12px 50px rgba(0,0,0,0.8);
+    inset 0 0 110px rgba(0, 0, 0, 0.6),
+    inset 0 0 34px rgba(0, 0, 0, 0.45),
+    inset 0 2px 5px rgba(255, 255, 255, 0.09);
   z-index: 1;
 
+  /* Cornice in legno con luce e profondità */
+  &::before {
+    content: '';
+    position: absolute;
+    inset: -14px;
+    border-radius: 50%;
+    background: linear-gradient(145deg, #5a3d1e 0%, #33200c 40%, #45290f 65%, #1e1206 100%);
+    box-shadow:
+      0 18px 60px rgba(0, 0, 0, 0.8),
+      inset 0 2px 3px rgba(255, 255, 255, 0.18),
+      inset 0 -3px 6px rgba(0, 0, 0, 0.6);
+    z-index: -1;
+  }
+
+  /* Filo dorato interno */
   &::after {
     content: '';
     position: absolute;
-    inset: 8px;
+    inset: 10px;
     border-radius: 50%;
-    border: 2px solid rgba(212,160,23,0.12);
+    border: 1.5px solid rgba(212, 160, 23, 0.16);
+    box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.25);
     pointer-events: none;
   }
 
   @media (max-width: 768px) {
     width: 94%;
-    height: 60%;
-    border-width: 5px;
+    height: 66%;
+
+    &::before {
+      inset: -9px;
+    }
   }
 `;
 
-// ===== TRUMP + DECK ON TABLE =====
-const TrumpDeckContainer = styled.div`
+// ===== CENTRO TAVOLO: tallone col dorso vero + briscola coricata sotto =====
+const CenterPile = styled.div`
   position: absolute;
   top: 50%;
   left: 50%;
   transform: translate(-50%, -50%);
-  display: flex;
-  align-items: center;
-  gap: 16px;
+  width: 150px;
+  height: 92px;
   z-index: 2;
 
   @media (max-width: 768px) {
-    gap: 10px;
+    width: 120px;
+    height: 74px;
   }
 `;
 
-const TrumpOnTable = styled.div`
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 4px;
-`;
-
-const TrumpMini = styled.div`
-  position: relative;
-  width: 52px;
-  height: 73px;
+// La briscola scoperta giace di traverso sotto il tallone (look classico)
+const TrumpUnder = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 62%;
+  width: 62px;
+  height: 87px;
+  transform: translate(-50%, -50%) rotate(90deg);
   border-radius: 5px;
   overflow: hidden;
-  border: 2px solid rgba(212,160,23,0.4);
-  box-shadow: 0 4px 12px rgba(0,0,0,0.5);
-
-  @media (min-width: 769px) {
-    width: 62px;
-    height: 87px;
-  }
+  border: 1.5px solid rgba(212, 160, 23, 0.4);
+  box-shadow: 0 3px 12px rgba(0, 0, 0, 0.55);
+  z-index: 1;
 
   img {
     width: 100%;
     height: 100%;
     object-fit: cover;
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 70px;
+    left: 60%;
   }
 `;
 
-const TrumpLabel = styled.span`
-  font-size: 9px;
-  color: rgba(212,160,23,0.7);
-  text-transform: uppercase;
-  letter-spacing: 1.5px;
-  font-weight: 600;
+// Briscola in piedi al centro quando il tallone è finito (sta per essere pescata)
+const TrumpUpright = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 62px;
+  height: 87px;
+  transform: translate(-50%, -50%);
+  border-radius: 5px;
+  overflow: hidden;
+  border: 1.5px solid rgba(212, 160, 23, 0.4);
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.55);
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+  }
+
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 70px;
+  }
 `;
 
-const DeckOnTable = styled.div`
-  position: relative;
-  width: 52px;
-  height: 73px;
+const DeckPile = styled.div`
+  position: absolute;
+  top: 50%;
+  left: 30%;
+  width: 62px;
+  height: 87px;
+  transform: translate(-50%, -50%);
   border-radius: 5px;
-  background: linear-gradient(135deg, #1a3018 0%, #0a1a08 100%);
-  border: 2px solid rgba(212,160,23,0.25);
-  box-shadow: 2px 2px 0 rgba(0,0,0,0.3), 4px 4px 0 rgba(0,0,0,0.2);
+  box-shadow:
+    2px 2px 0 rgba(0, 0, 0, 0.35),
+    4px 4px 0 rgba(0, 0, 0, 0.25),
+    0 8px 18px rgba(0, 0, 0, 0.55);
+  z-index: 2;
+
+  img {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+    display: block;
+    border-radius: 5px;
+    border: 1px solid rgba(0, 0, 0, 0.4);
+  }
+
+  @media (max-width: 768px) {
+    width: 50px;
+    height: 70px;
+  }
+`;
+
+const DeckCountBadge = styled.span`
+  position: absolute;
+  bottom: -7px;
+  right: -7px;
+  min-width: 22px;
+  height: 22px;
+  padding: 0 5px;
+  border-radius: 11px;
+  background: #d4a017;
+  color: #0a120a;
+  font-size: 12px;
+  font-weight: 700;
   display: flex;
   align-items: center;
   justify-content: center;
-
-  @media (min-width: 769px) {
-    width: 62px;
-    height: 87px;
-  }
-
-  &::after {
-    content: '';
-    position: absolute;
-    inset: 4px;
-    border-radius: 3px;
-    background: repeating-linear-gradient(
-      45deg,
-      rgba(212,160,23,0.08),
-      rgba(212,160,23,0.08) 3px,
-      transparent 3px,
-      transparent 6px
-    );
-  }
+  box-shadow: 0 2px 6px rgba(0, 0, 0, 0.5);
+  font-variant-numeric: tabular-nums;
+  z-index: 3;
 `;
 
-const DeckCount = styled.span`
-  position: relative;
-  z-index: 1;
-  font-size: 16px;
-  font-weight: 700;
-  color: rgba(245,240,232,0.6);
-  font-family: 'SF Mono', Monaco, monospace;
+const PileLabel = styled.span`
+  position: absolute;
+  bottom: -18px;
+  left: 50%;
+  transform: translateX(-50%);
+  font-size: 9px;
+  color: rgba(212, 160, 23, 0.65);
+  text-transform: uppercase;
+  letter-spacing: 1.5px;
+  font-weight: 600;
+  white-space: nowrap;
+`;
 
-  @media (min-width: 769px) {
-    font-size: 20px;
+// ===== PUNTI DELLA PRESA (visibili solo durante la raccolta) =====
+const pointsPop = keyframes`
+  0% { opacity: 0; transform: scale(0.4) translateY(8px); }
+  14% { opacity: 1; transform: scale(1.18) translateY(0); }
+  24% { transform: scale(1); }
+  72% { opacity: 1; transform: scale(1) translateY(0); }
+  100% { opacity: 0; transform: scale(0.85) translateY(-24px); }
+`;
+
+const TrickPointsFloat = styled.div`
+  position: absolute;
+  z-index: 30;
+  transform: translate(-50%, -50%);
+  pointer-events: none;
+`;
+
+const TrickPointsInner = styled.div`
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  background: rgba(6, 10, 6, 0.88);
+  border: 1.5px solid rgba(212, 160, 23, 0.55);
+  border-radius: 12px;
+  padding: 6px 16px 7px;
+  box-shadow: 0 0 22px rgba(212, 160, 23, 0.35), 0 6px 18px rgba(0, 0, 0, 0.5);
+  animation: ${pointsPop} 1.5s cubic-bezier(0.22, 1, 0.36, 1) forwards;
+
+  b {
+    font-size: 24px;
+    color: #f0cf7a;
+    line-height: 1.05;
+    text-shadow: 0 0 12px rgba(212, 160, 23, 0.6);
+    font-variant-numeric: tabular-nums;
+  }
+
+  span {
+    font-size: 8px;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: rgba(212, 160, 23, 0.8);
+    font-weight: 700;
   }
 `;
 
@@ -359,6 +457,7 @@ const SeatName = styled.div`
   font-weight: 600;
   color: ${DESIGN.colors.text.primary};
   background: rgba(0,0,0,0.7);
+  border: 1px solid rgba(212,160,23,0.18);
   padding: 2px 10px;
   border-radius: 8px;
   white-space: nowrap;
@@ -419,10 +518,12 @@ const PlayedCardSpot = styled.div<{ seat: SeatPosition }>`
   `}
 
   @media (max-width: 768px) {
-    ${props => props.seat === 'bottom' && `bottom: 24%;`}
-    ${props => props.seat === 'top' && `top: 24%;`}
-    ${props => props.seat === 'left' && `left: 18%;`}
-    ${props => props.seat === 'right' && `right: 18%;`}
+    ${props => props.seat === 'bottom' && `bottom: 22%;`}
+    ${props => props.seat === 'top' && `top: 22%;`}
+    ${props => props.seat === 'left' && `left: 12%;`}
+    ${props => props.seat === 'right' && `right: 12%;`}
+    ${props => props.seat === 'topLeft' && `top: 23%; left: 26%;`}
+    ${props => props.seat === 'topRight' && `top: 23%; right: 26%;`}
   }
 `;
 
@@ -437,30 +538,14 @@ const winnerRing = keyframes`
 
 const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: boolean; collectDx?: number; collectDy?: number }>`
   position: relative;
+  /* Stesse proporzioni della carta (0.65): l'immagine riempie senza bande */
   width: 60px;
-  height: 84px;
-  border-radius: 6px;
+  aspect-ratio: 0.65;
   filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.45));
 
   @media (min-width: 769px) {
     width: 80px;
-    height: 112px;
   }
-
-  /* Anello dorato sulla carta che vince la presa */
-  ${props => props.isWinner && css`
-    &::after {
-      content: '';
-      position: absolute;
-      inset: -4px;
-      border: 2.5px solid #d4a017;
-      border-radius: 9px;
-      box-shadow: 0 0 18px rgba(212, 160, 23, 0.55), inset 0 0 10px rgba(212, 160, 23, 0.2);
-      pointer-events: none;
-      animation: ${winnerRing} 400ms ease-out;
-      z-index: 10;
-    }
-  `}
 
   /* Raccolta: le carte scivolano verso il vincitore e svaniscono */
   ${props => props.isFadingOut && css`
@@ -468,6 +553,37 @@ const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: 
     opacity: 0;
     transition: transform 450ms cubic-bezier(0.55, 0, 0.8, 0.4), opacity 420ms ease-in;
   `}
+`;
+
+// Porta la rotazione casuale della carta E l'anello del vincitore:
+// ruotando insieme, la cornice contorna la carta con precisione
+const TiltWrap = styled.div<{ isWinner: boolean }>`
+  position: relative;
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+
+  ${props => props.isWinner && css`
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 2.5px solid #d4a017;
+      border-radius: 8px;
+      box-shadow: 0 0 18px rgba(212, 160, 23, 0.55), inset 0 0 10px rgba(212, 160, 23, 0.2);
+      pointer-events: none;
+      animation: ${winnerRing} 400ms ease-out;
+      z-index: 10;
+    }
+  `}
+`;
+
+// Ritaglia gli angoli della carta (l'anello vive sul TiltWrap, fuori dal clip)
+const CardClip = styled.div`
+  width: 100%;
+  height: 100%;
+  border-radius: 6px;
+  overflow: hidden;
 `;
 
 // ===== QUICK CHAT BAR (always visible) =====
@@ -603,29 +719,6 @@ const TurnHint = styled.div<{ mine: boolean }>`
   padding: 4px 0 0;
   z-index: 50;
   animation: ${handEntrance} 250ms ease-out;
-`;
-
-const PointsBadge = styled.div`
-  display: inline-flex;
-  align-items: baseline;
-  gap: 5px;
-  font-size: 10px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.5px;
-  color: ${DESIGN.colors.text.tertiary};
-  background: rgba(19, 33, 19, 0.8);
-  padding: 4px 10px;
-  border-radius: 8px;
-  border: 1px solid rgba(212, 160, 23, 0.1);
-  white-space: nowrap;
-
-  b {
-    color: #d4a017;
-    font-size: 14px;
-    line-height: 1;
-    font-variant-numeric: tabular-nums;
-  }
 `;
 
 const ReconnectingTag = styled.span`
@@ -815,14 +908,6 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     setSoundOn(!soundOn);
   };
 
-  // Punti live: i tuoi (o della tua squadra in 2v2), con count-up sulla presa
-  const stackPoints = (pid: string) =>
-    (gameState.playerStacks[pid] || []).reduce((t, c) => t + c.score, 0);
-  const rawPoints = teams
-    ? seatIds.filter(pid => teams[pid] === teams[currentPlayerId]).reduce((t, pid) => t + stackPoints(pid), 0)
-    : stackPoints(currentPlayerId);
-  const livePoints = useCountUp(rawPoints);
-
   // Nome robusto: displayName → registro posti → 'Giocatore'
   // (mai il nickname casuale di Playroom)
   const resolveSeatDisplay = (sid: string): { name: string; emoji: string; connected: boolean } => {
@@ -885,6 +970,10 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   const playedCards = gameState.playedCards;
   const roundWinnerId = gameState.phase === 'round_complete' ? gameState.roundWinnerId : null;
   const winnerSeat = roundWinnerId ? seatMap.get(roundWinnerId) : undefined;
+  // Punti della presa corrente: mostrati solo durante l'animazione di raccolta
+  const trickPoints = roundWinnerId
+    ? playedCards.reduce((t, pc) => t + pc.card.score, 0)
+    : 0;
 
   // ===== GAME OVER =====
   if (gameState.phase === 'game_over') {
@@ -1028,7 +1117,6 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           BRISCOLA<TopBarVersion>v{packageJson.version}</TopBarVersion>
         </TopBarTitle>
         <TopBarInfo>
-          <PointsBadge>{isTeamMode ? 'Squadra' : 'Punti'} <b>{livePoints}</b></PointsBadge>
           <RoundBadge>{gameState.smazzataNumber > 1 ? `S${gameState.smazzataNumber} · ` : ''}T{gameState.roundNumber}</RoundBadge>
           {secondsLeft !== null && (
             <TimerChip urgent={secondsLeft <= 5}>{secondsLeft}s</TimerChip>
@@ -1055,22 +1143,42 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
       <TableArea>
         <FeltTable />
 
-        {/* Trump card + deck in center of table */}
-        <TrumpDeckContainer>
+        {/* Centro tavolo: tallone col dorso vero, briscola coricata sotto */}
+        <CenterPile>
+          {gameState.trumpCard && gameState.deck.length > 0 && (
+            <TrumpUnder>
+              <img src={gameState.trumpCard.imagePath} alt="Briscola" />
+            </TrumpUnder>
+          )}
+          {gameState.trumpCard && gameState.deck.length === 0 && (
+            <TrumpUpright>
+              <img src={gameState.trumpCard.imagePath} alt="Briscola" />
+            </TrumpUpright>
+          )}
           {gameState.deck.length > 0 && (
-            <DeckOnTable>
-              <DeckCount>{gameState.deck.length}</DeckCount>
-            </DeckOnTable>
+            <DeckPile>
+              <img src="/assets/cards/back.jpg" alt="Mazzo" />
+              <DeckCountBadge>{gameState.deck.length}</DeckCountBadge>
+            </DeckPile>
           )}
-          {gameState.trumpCard && (
-            <TrumpOnTable>
-              <TrumpMini>
-                <img src={gameState.trumpCard.imagePath} alt={gameState.trumpCard.name} />
-              </TrumpMini>
-              <TrumpLabel>Briscola</TrumpLabel>
-            </TrumpOnTable>
-          )}
-        </TrumpDeckContainer>
+          {gameState.trumpCard && <PileLabel>Briscola</PileLabel>}
+        </CenterPile>
+
+        {/* Punti della presa: appaiono solo durante la raccolta */}
+        {roundWinnerId && winnerSeat && trickPoints > 0 && (
+          <TrickPointsFloat
+            key={`pts_${gameState.roundNumber}`}
+            style={{
+              left: `calc(50% + ${SEAT_VECTORS[winnerSeat][0] * 24}%)`,
+              top: `calc(50% + ${SEAT_VECTORS[winnerSeat][1] * 20}%)`,
+            }}
+          >
+            <TrickPointsInner>
+              <b>+{trickPoints}</b>
+              <span>punti</span>
+            </TrickPointsInner>
+          </TrickPointsFloat>
+        )}
 
         {/* Played cards on the table */}
         {playedCards.map((pc, idx) => {
@@ -1092,13 +1200,17 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
                   collectDx={collectDx}
                   collectDy={collectDy}
                 >
-                  <CardComponent
-                    card={pc.card}
-                    onClick={() => {}}
-                    transform={pc.transform}
-                    colors={cardColors}
-                    fillContainer
-                  />
+                  <TiltWrap isWinner={isWinner} style={{ transform: pc.transform }}>
+                    <CardClip>
+                      <CardComponent
+                        card={pc.card}
+                        onClick={() => {}}
+                        transform=""
+                        colors={cardColors}
+                        fillContainer
+                      />
+                    </CardClip>
+                  </TiltWrap>
                 </PlaySlot>
               </PlayedCardWrapper>
             </PlayedCardSpot>

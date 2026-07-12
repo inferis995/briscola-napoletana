@@ -69,6 +69,7 @@ export interface GameState {
   smazzata2Scores?: { [playerId: string]: number };
   smazzata2TeamScores?: { [team: string]: number };
   lastHandRevealDone?: boolean;
+  seatCycle?: string[];
 }
 
 export interface GameConfig {

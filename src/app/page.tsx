@@ -331,7 +331,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       // Rebuild turn order for team modes (2v2)
       if (newState.turnOrder && newState.teams) {
         const startPid = allPlayers[startIndex].id;
-        newState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPid, newState.teams, allPlayers);
+        newState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPid, newState.teams, allPlayers, newState.seatCycle);
       }
 
       commitGameState(stampTurnDeadline(stampSeatOwners(newState, allPlayers)));
@@ -544,7 +544,7 @@ const ConnectedApp: React.FC<{ username: string; avatarEmoji: string; gameMode?:
       initialState.currentTurnPlayerIndex = startIndex;
       if (initialState.turnOrder && initialState.teams) {
         initialState.turnOrder = TwoVTwoGameLogic.buildTurnOrder(
-          gamePlayers[startIndex].id, initialState.teams, gamePlayers
+          gamePlayers[startIndex].id, initialState.teams, gamePlayers, initialState.seatCycle
         );
       }
 

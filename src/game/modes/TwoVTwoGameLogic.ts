@@ -48,16 +48,28 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
 
   /**
    * Build a team-alternating turn order starting from a given player.
-   * Order: starter(WT) → other1(OT) → teammate(WT) → other2(OT)
+   * Uses the FIXED seat cycle established at game start so the visual
+   * direction (counter-clockwise) never flips regardless of who opens.
+   * Returns the seat cycle rotated so the start player is first.
    */
   static buildTurnOrder(
     startPlayerId: string,
     teams: { [playerId: string]: number },
-    players: PlayerState[]
+    players: PlayerState[],
+    seatCycle?: string[]
   ): string[] {
+    // If we have a fixed seat cycle, just rotate it
+    if (seatCycle && seatCycle.length === players.length) {
+      const idx = seatCycle.indexOf(startPlayerId);
+      if (idx >= 0) {
+        return [...seatCycle.slice(idx), ...seatCycle.slice(0, idx)];
+      }
+    }
+
+    // Fallback: build from scratch (first game, no cycle yet)
+    // Canonical order: A1 → B1 → A2 → B2 (counter-clockwise)
     const startTeam = teams[startPlayerId];
     const otherTeamNum = startTeam === 1 ? 2 : 1;
-
     const sameTeamPlayers = players.filter(
       p => teams[p.id] === startTeam && p.id !== startPlayerId
     );
@@ -65,9 +77,6 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       p => teams[p.id] === otherTeamNum
     );
 
-    // Anti-orario: dal basso vai a DESTRA, poi sopra, poi sinistra
-    // assignSeats: opponents[0]=destra, opponents[1]=sinistra
-    // Quindi: startPlayer → otherTeam[0](destra) → teammate(sopra) → otherTeam[1](sinistra)
     return [
       startPlayerId,
       otherTeamPlayers[0]?.id,
@@ -110,10 +119,20 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
 
     const teams = this.getTeamsFromPlayers();
 
-    // Build initial turn order starting with first player of team 1
+    // Build the FIXED seat cycle: A1 → B1 → A2 → B2 (counter-clockwise)
+    // This never changes during the game — only the starting point rotates
     const team1Players = this.players.filter(p => teams[p.id] === 1);
+    const team2Players = this.players.filter(p => teams[p.id] === 2);
+    const seatCycle = [
+      team1Players[0]?.id,
+      team2Players[0]?.id,
+      team1Players[1]?.id,
+      team2Players[1]?.id,
+    ].filter(Boolean) as string[];
+
+    // Build initial turn order from the seat cycle
     const startPlayer = team1Players[0] || this.players[0];
-    const turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPlayer.id, teams, this.players);
+    const turnOrder = TwoVTwoGameLogic.buildTurnOrder(startPlayer.id, teams, this.players, seatCycle);
 
     this.state = {
       phase: 'playing',
@@ -132,6 +151,7 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
       roundHistory: [],
       teams,
       turnOrder,
+      seatCycle,
       smazzataNumber: 1,
       lastHandRevealDone: false,
     };
@@ -226,7 +246,7 @@ export class TwoVTwoGameLogic extends BaseGameLogic {
     newStacks[winnerId].push(...this.state.playedCards.map(pc => pc.card));
 
     // Rebuild turn order starting from winner
-    const newTurnOrder = TwoVTwoGameLogic.buildTurnOrder(winnerId, teams, this.players);
+    const newTurnOrder = TwoVTwoGameLogic.buildTurnOrder(winnerId, teams, this.players, this.state.seatCycle);
 
     // Draw cards following the new turn order (winner first)
     const newDeck = [...this.state.deck];

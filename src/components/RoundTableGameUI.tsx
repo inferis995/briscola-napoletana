@@ -94,9 +94,10 @@ const TopBar = styled.div`
 `;
 
 const TopBarTitle = styled.div`
+  font-family: var(--font-display), 'Times New Roman', serif;
   font-size: 14px;
   font-weight: 700;
-  letter-spacing: 1px;
+  letter-spacing: 2px;
   color: #d4a017;
   display: flex;
   align-items: center;

@@ -948,12 +948,13 @@ const LobbyHeader = styled.div`
 `;
 
 const LobbyTitle = styled.h1`
-  font-size: clamp(36px, 7vw, 52px);
-  font-weight: 800;
+  font-family: var(--font-display), 'Times New Roman', serif;
+  font-size: clamp(32px, 6.5vw, 48px);
+  font-weight: 700;
   color: ${DESIGN.colors.text.primary};
   margin: 0;
-  letter-spacing: 6px;
-  line-height: 1;
+  letter-spacing: 4px;
+  line-height: 1.15;
 `;
 
 const LobbySubtitle = styled.p`

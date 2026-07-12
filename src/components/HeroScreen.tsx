@@ -109,45 +109,81 @@ const TitleSection = styled.div`
   animation: ${titleFadeIn} 600ms ease-out;
 `;
 
+// Fregio: due linee dorate che convergono su un rombo
+const Ornament = styled.div`
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  color: #d4a017;
+  font-size: 10px;
+  line-height: 1;
+  margin-bottom: clamp(8px, 1.5vh, 14px);
+
+  &::before,
+  &::after {
+    content: '';
+    height: 1px;
+    width: clamp(44px, 12vw, 110px);
+  }
+
+  &::before {
+    background: linear-gradient(90deg, transparent, rgba(212, 160, 23, 0.75));
+  }
+
+  &::after {
+    background: linear-gradient(270deg, transparent, rgba(212, 160, 23, 0.75));
+  }
+`;
+
 const Title = styled.h1`
-  font-size: clamp(28px, 7vw, 64px);
-  font-weight: 800;
-  color: ${DESIGN.colors.text.primary};
+  font-family: var(--font-display), 'Times New Roman', serif;
+  font-size: clamp(40px, 11vw, 84px);
+  font-weight: 700;
   margin: 0;
-  letter-spacing: 4px;
+  letter-spacing: clamp(3px, 1vw, 8px);
   line-height: 1;
   background: linear-gradient(
     90deg,
-    ${DESIGN.colors.text.primary} 0%,
-    ${DESIGN.colors.text.primary} 40%,
-    #d4a017 50%,
-    ${DESIGN.colors.text.primary} 60%,
-    ${DESIGN.colors.text.primary} 100%
+    #f5f0e8 0%,
+    #f5f0e8 38%,
+    #f0cf7a 50%,
+    #f5f0e8 62%,
+    #f5f0e8 100%
   );
   background-size: 200% auto;
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
-  animation: ${shimmer} 6s linear infinite;
+  animation: ${shimmer} 7s linear infinite;
+`;
+
+const TitleAccent = styled.div`
+  font-family: var(--font-display), 'Times New Roman', serif;
+  font-size: clamp(13px, 3.4vw, 24px);
+  font-weight: 600;
+  color: #d4a017;
+  letter-spacing: clamp(6px, 2.2vw, 16px);
+  margin-top: clamp(4px, 1vh, 10px);
+  /* compensa lo spazio finale del letter-spacing per centrare davvero */
+  padding-left: clamp(6px, 2.2vw, 16px);
 `;
 
 const Subtitle = styled.p`
-  font-size: clamp(10px, 1.6vw, 13px);
-  color: ${DESIGN.colors.text.secondary};
-  margin: 4px 0 0;
-  letter-spacing: 1.5px;
+  font-size: clamp(10px, 1.6vw, 12px);
+  color: ${DESIGN.colors.text.tertiary};
+  margin: clamp(8px, 1.5vh, 14px) 0 0;
+  letter-spacing: 2.5px;
   text-transform: uppercase;
+  font-weight: 500;
 `;
 
-const VersionBadge = styled.span`
+const FooterVersion = styled.span`
   font-size: 10px;
   color: ${DESIGN.colors.text.tertiary};
-  background: ${DESIGN.colors.surfaces.containers};
-  padding: 2px 8px;
-  border-radius: 8px;
-  margin-left: 8px;
-  font-weight: 500;
-  vertical-align: middle;
+  letter-spacing: 1px;
+  margin-top: auto;
+  opacity: 0.7;
 `;
 
 const CardFanContainer = styled.div`
@@ -490,11 +526,10 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
       )}
 
       <TitleSection>
-        <Title>BRISCOLA NAPOLETANA</Title>
-        <Subtitle>
-          Il gioco di carte più amato di Napoli
-          <VersionBadge>v{packageJson.version}</VersionBadge>
-        </Subtitle>
+        <Ornament>◆</Ornament>
+        <Title>BRISCOLA</Title>
+        <TitleAccent>NAPOLETANA</TitleAccent>
+        <Subtitle>Carte napoletane · Multiplayer in tempo reale</Subtitle>
       </TitleSection>
 
       <CardFanContainer>
@@ -605,6 +640,8 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
       <RulesButton onClick={() => setShowRules(true)} style={{ marginTop: '16px' }}>
         <RulesIcon /> COME SI GIOCA
       </RulesButton>
+
+      <FooterVersion>v{packageJson.version}</FooterVersion>
 
       {showRules && <RulesPopup onClose={() => setShowRules(false)} />}
     </Container>

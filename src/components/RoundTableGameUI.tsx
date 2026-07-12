@@ -1212,14 +1212,12 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           {secondsLeft !== null && (
             <TimerChip urgent={secondsLeft <= 5}>{secondsLeft}s</TimerChip>
           )}
-          <HideOnMobile>
-            <TopBarButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
-              {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
-            </TopBarButton>
-            <TopBarButton onClick={() => setShowThemePicker(v => !v)} title="Colore del tavolo">
-              <Palette size={15} />
-            </TopBarButton>
-          </HideOnMobile>
+          <TopBarButton onClick={toggleSound} title={soundOn ? 'Disattiva audio' : 'Attiva audio'}>
+            {soundOn ? <Volume2 size={15} /> : <VolumeX size={15} />}
+          </TopBarButton>
+          <TopBarButton onClick={() => setShowThemePicker(v => !v)} title="Colore del tavolo">
+            <Palette size={15} />
+          </TopBarButton>
           <TopBarButton onClick={() => setShowRules(true)} title="Come si gioca">
             <RulesIcon />
           </TopBarButton>

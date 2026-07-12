@@ -617,38 +617,40 @@ const PlayAgainButton = styled.button`
   &:active { transform: scale(0.97); }
 `;
 
-// ===== HELPER: assign seats =====
-const assignSeats = (players: any[], currentPlayerId: string, teams?: { [id: string]: number }): Map<string, SeatPosition> => {
+// ===== HELPER: assign seats based on actual turn order =====
+const assignSeats = (players: any[], currentPlayerId: string, turnOrder?: string[], teams?: { [id: string]: number }): Map<string, SeatPosition> => {
   const seats = new Map<string, SeatPosition>();
-  const myIndex = players.findIndex(p => p.id === currentPlayerId);
   const n = players.length;
 
-  if (n === 2) {
-    seats.set(players[myIndex].id, 'bottom');
-    seats.set(players[(myIndex + 1) % n].id, 'top');
-  } else if (n === 3) {
-    // Anti-orario: tu in basso, il prossimo (in senso anti-orario) a destra
-    seats.set(players[myIndex].id, 'bottom');
-    seats.set(players[(myIndex - 1 + n) % n].id, 'topRight');
-    seats.set(players[(myIndex - 2 + n) % n].id, 'topLeft');
-  } else if (n === 4) {
-    // 2v2: anti-orario. Tu basso, compagno alto, avversari lati
-    // Il prossimo in senso anti-orario dal basso va a DESTRA
-    if (teams) {
-      const myTeam = teams[currentPlayerId];
-      const teammate = players.find(p => p.id !== currentPlayerId && teams[p.id] === myTeam);
-      const opponents = players.filter(p => teams[p.id] !== myTeam);
-      seats.set(currentPlayerId, 'bottom');
-      if (teammate) seats.set(teammate.id, 'top');
-      // Anti-orario: il primo avversario a destra, il secondo a sinistra
-      if (opponents[0]) seats.set(opponents[0].id, 'right');
-      if (opponents[1]) seats.set(opponents[1].id, 'left');
-    } else {
-      seats.set(players[myIndex].id, 'bottom');
-      seats.set(players[(myIndex - 1 + n) % n].id, 'right');
-      seats.set(players[(myIndex - 2 + n) % n].id, 'top');
-      seats.set(players[(myIndex - 3 + n) % n].id, 'left');
+  // Build the effective turn order array
+  let order: string[];
+  if (turnOrder && turnOrder.length === n) {
+    order = [...turnOrder];
+  } else {
+    // For non-turnOrder modes, compute counter-clockwise order
+    const myIndex = players.findIndex(p => p.id === currentPlayerId);
+    order = [];
+    for (let i = 0; i < n; i++) {
+      order.push(players[(myIndex - i + n) % n].id);
     }
+  }
+
+  // Rotate the order so "me" is first
+  const myPos = order.indexOf(currentPlayerId);
+  if (myPos === -1) return seats;
+  const rotated = [...order.slice(myPos), ...order.slice(0, myPos)];
+
+  // Assign seats: me=bottom, next=right, across=top, prev=left
+  seats.set(rotated[0], 'bottom');
+  if (n === 2) {
+    seats.set(rotated[1], 'top');
+  } else if (n === 3) {
+    seats.set(rotated[1], 'topRight');
+    seats.set(rotated[2], 'topLeft');
+  } else if (n === 4) {
+    seats.set(rotated[1], 'right');
+    seats.set(rotated[2], 'top');
+    seats.set(rotated[3], 'left');
   }
 
   return seats;
@@ -729,7 +731,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   const teammateHand = teammate ? (gameState.playerHands[teammate.id] || []) : [];
 
   // Assign seats
-  const seatMap = assignSeats(players, currentPlayerId, teams);
+  const seatMap = assignSeats(players, currentPlayerId, gameState.turnOrder, teams);
   const playedCards = gameState.playedCards;
   const roundWinnerId = gameState.phase === 'round_complete' ? gameState.roundWinnerId : null;
 

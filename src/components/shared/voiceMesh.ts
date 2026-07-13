@@ -16,13 +16,17 @@ const buildIceServers = (): RTCIceServer[] => {
     { urls: 'stun:stun.l.google.com:19302' },
     { urls: 'stun:stun1.l.google.com:19302' },
   ];
+  // Uno o più URL TURN separati da virgola (Metered/Cloudflare ne danno
+  // diversi: porte 80/443, udp/tcp — più ce ne sono, più reti copriamo)
   const turnUrl = process.env.NEXT_PUBLIC_TURN_URL;
   if (turnUrl) {
-    servers.push({
-      urls: turnUrl,
-      username: process.env.NEXT_PUBLIC_TURN_USERNAME || '',
-      credential: process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '',
-    });
+    const username = process.env.NEXT_PUBLIC_TURN_USERNAME || '';
+    const credential = process.env.NEXT_PUBLIC_TURN_CREDENTIAL || '';
+    turnUrl
+      .split(',')
+      .map(u => u.trim())
+      .filter(Boolean)
+      .forEach(urls => servers.push({ urls, username, credential }));
   }
   return servers;
 };

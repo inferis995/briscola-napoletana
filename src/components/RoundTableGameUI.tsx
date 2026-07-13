@@ -914,6 +914,31 @@ const PttButton = styled.button<{ $active: boolean; $denied: boolean }>`
   }
 `;
 
+// Avviso voce: spiega PERCHÉ il microfono non va e come sistemarlo
+const VoiceNotice = styled.div`
+  position: absolute;
+  right: 12px;
+  bottom: 74px;
+  max-width: 240px;
+  z-index: 85;
+  background: rgba(10, 16, 10, 0.96);
+  border: 1px solid rgba(230, 57, 70, 0.5);
+  border-radius: 10px;
+  padding: 10px 12px;
+  font-size: 11px;
+  line-height: 1.45;
+  color: ${DESIGN.colors.text.primary};
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.6);
+  animation: ${cardSlideIn} 180ms ease-out;
+  cursor: pointer;
+
+  @media (max-height: 520px) {
+    bottom: 56px;
+    max-width: 200px;
+    font-size: 10px;
+  }
+`;
+
 const PttHint = styled.span`
   position: absolute;
   right: 12px;
@@ -1300,6 +1325,22 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   // Voce push-to-talk (P2P, zero server)
   const { micStatus, isTalking, startTalking, stopTalking, voiceSupported } =
     useVoiceChat(players, currentPlayerId);
+
+  // Avviso visibile quando il microfono non è utilizzabile (e perché)
+  const micBlocked = micStatus === 'denied' || micStatus === 'nomic' || micStatus === 'error' || micStatus === 'unsupported';
+  const [showVoiceNotice, setShowVoiceNotice] = useState(false);
+  useEffect(() => {
+    if (!micBlocked) { setShowVoiceNotice(false); return; }
+    setShowVoiceNotice(true);
+    const timer = setTimeout(() => setShowVoiceNotice(false), 8000);
+    return () => clearTimeout(timer);
+  }, [micStatus, micBlocked]);
+  const voiceNoticeText =
+    micStatus === 'denied'
+      ? 'Microfono bloccato dal browser. Apri i permessi del sito (lucchetto o "aA" accanto all\'indirizzo) e consenti il Microfono, poi riprova.'
+      : micStatus === 'nomic'
+        ? 'Nessun microfono trovato su questo dispositivo.'
+        : 'Microfono non disponibile su questo browser.';
 
   // Desktop: barra spaziatrice = push-to-talk (ignorata mentre scrivi in chat)
   useEffect(() => {
@@ -1724,20 +1765,28 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
         {/* Push-to-talk: tieni premuto per parlare */}
         {voiceSupported && (
           <>
-            <PttHint>{micStatus === 'denied' ? 'mic negato' : 'tieni premuto'}</PttHint>
+            {showVoiceNotice && (
+              <VoiceNotice onClick={() => setShowVoiceNotice(false)}>
+                {voiceNoticeText}
+              </VoiceNotice>
+            )}
+            <PttHint>
+              {micStatus === 'denied' ? 'mic bloccato'
+                : micStatus === 'nomic' ? 'nessun mic'
+                : micStatus === 'error' || micStatus === 'unsupported' ? 'mic non disp.'
+                : 'tieni premuto'}
+            </PttHint>
             <PttButton
               $active={isTalking}
-              $denied={micStatus === 'denied'}
-              title={micStatus === 'denied'
-                ? 'Microfono bloccato: consenti l\'accesso dalle impostazioni del browser'
-                : 'Tieni premuto per parlare (o barra spaziatrice)'}
+              $denied={micBlocked}
+              title={micBlocked ? voiceNoticeText : 'Tieni premuto per parlare (o barra spaziatrice)'}
               onPointerDown={(e) => { e.preventDefault(); startTalking(); }}
               onPointerUp={stopTalking}
               onPointerLeave={stopTalking}
               onPointerCancel={stopTalking}
               onContextMenu={(e) => e.preventDefault()}
             >
-              {micStatus === 'denied' ? <MicOff size={22} /> : <Mic size={22} />}
+              {micBlocked ? <MicOff size={22} /> : <Mic size={22} />}
             </PttButton>
           </>
         )}

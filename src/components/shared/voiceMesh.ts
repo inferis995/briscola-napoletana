@@ -61,26 +61,46 @@ export class VoiceMesh {
    * mentre il pulsante è premuto. Se ci sono già connessioni attive, la
    * traccia viene aggiunta e la rinegoziazione parte da sola.
    */
-  async initMic(): Promise<boolean> {
-    if (this.localStream) return true;
-    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return false;
+  async initMic(): Promise<'ok' | 'denied' | 'nomic' | 'error'> {
+    if (this.localStream) return 'ok';
+    if (typeof navigator === 'undefined' || !navigator.mediaDevices?.getUserMedia) return 'error';
+
+    let stream: MediaStream | null = null;
+    let firstError: any = null;
     try {
-      const stream = await navigator.mediaDevices.getUserMedia({
+      stream = await navigator.mediaDevices.getUserMedia({
         audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true },
       });
-      if (this.destroyed) {
-        stream.getTracks().forEach(t => t.stop());
-        return false;
+    } catch (err: any) {
+      firstError = err;
+      // Alcuni dispositivi rifiutano i vincoli avanzati: riprova in semplice
+      if (err?.name === 'OverconstrainedError' || err?.name === 'NotReadableError' || err?.name === 'AbortError') {
+        try {
+          stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+        } catch (err2: any) {
+          firstError = err2;
+        }
       }
-      stream.getAudioTracks().forEach(t => { t.enabled = false; });
-      this.localStream = stream;
-      this.peers.forEach(entry => {
-        stream.getAudioTracks().forEach(track => entry.pc.addTrack(track, stream));
-      });
-      return true;
-    } catch {
-      return false;
     }
+
+    if (!stream) {
+      const name = firstError?.name || '';
+      console.warn('getUserMedia fallito:', name, firstError?.message);
+      if (name === 'NotAllowedError' || name === 'PermissionDeniedError' || name === 'SecurityError') return 'denied';
+      if (name === 'NotFoundError' || name === 'DevicesNotFoundError') return 'nomic';
+      return 'error';
+    }
+
+    if (this.destroyed) {
+      stream.getTracks().forEach(t => t.stop());
+      return 'error';
+    }
+    stream.getAudioTracks().forEach(t => { t.enabled = false; });
+    this.localStream = stream;
+    this.peers.forEach(entry => {
+      stream!.getAudioTracks().forEach(track => entry.pc.addTrack(track, stream!));
+    });
+    return 'ok';
   }
 
   setTalking(on: boolean): void {
@@ -161,6 +181,14 @@ export class VoiceMesh {
     pc.onconnectionstatechange = () => {
       if (pc.connectionState === 'failed') {
         try { pc.restartIce(); } catch {}
+      }
+      // Recupero automatico: se resta "disconnected" per 3s, riavvia ICE
+      if (pc.connectionState === 'disconnected') {
+        setTimeout(() => {
+          if (!this.destroyed && pc.connectionState === 'disconnected') {
+            try { pc.restartIce(); } catch {}
+          }
+        }, 3000);
       }
     };
 

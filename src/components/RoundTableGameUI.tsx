@@ -6,7 +6,7 @@ import { CardComponent } from '@/components/Card';
 import { MatchHistoryButton } from '@/components/MatchHistory';
 import { RulesPopup, RulesIcon } from '@/components/RulesPopup';
 import { QuickChatPopup, QuickChatBubble, QuickChatIcon } from '@/components/QuickChat';
-import { Wifi, WifiOff, Volume2, VolumeX, Palette } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, VolumeX, Palette, Mic, MicOff } from 'lucide-react';
 import packageJson from '../../package.json';
 import {
   DESIGN,
@@ -23,6 +23,7 @@ import { useGameFeedback } from '@/components/shared/useGameFeedback';
 import { isSoundEnabled, setSoundEnabled } from '@/components/shared/soundEffects';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
 import { TABLE_THEMES, TableTheme, getSavedTableTheme, saveTableTheme } from '@/components/shared/tableThemes';
+import { useVoiceChat } from '@/components/shared/useVoiceChat';
 
 // ===== TYPES =====
 type SeatPosition = 'bottom' | 'top' | 'left' | 'right' | 'topLeft' | 'topRight';
@@ -51,6 +52,11 @@ const cardSlideIn = keyframes`
 const handEntrance = keyframes`
   from { opacity: 0; transform: translateY(16px); }
   to { opacity: 1; transform: translateY(0); }
+`;
+
+const talkPulse = keyframes`
+  0%, 100% { box-shadow: 0 0 0 0 rgba(61, 220, 120, 0.45); }
+  50% { box-shadow: 0 0 0 9px rgba(61, 220, 120, 0.08); }
 `;
 
 // ===== MAIN CONTAINER =====
@@ -493,6 +499,7 @@ const PlayerSeat = styled.div<{ seat: SeatPosition; isActive: boolean }>`
 `;
 
 const SeatAvatar = styled.div<{ isActive: boolean; teamColor?: string }>`
+  position: relative;
   width: 48px;
   height: 48px;
   border-radius: 50%;
@@ -519,6 +526,17 @@ const SeatAvatar = styled.div<{ isActive: boolean; teamColor?: string }>`
     font-size: 19px;
     border-width: 2px;
   }
+`;
+
+// Anello verde su chi sta parlando (push-to-talk)
+const TalkRing = styled.div`
+  position: absolute;
+  inset: -5px;
+  border-radius: 50%;
+  border: 2.5px solid rgba(61, 220, 120, 0.85);
+  box-shadow: 0 0 14px rgba(61, 220, 120, 0.55);
+  pointer-events: none;
+  animation: ${talkPulse} 1.2s ease-in-out infinite;
 `;
 
 const SeatName = styled.div`
@@ -606,17 +624,18 @@ const winnerRing = keyframes`
 
 const PlaySlot = styled.div<{ isEmpty: boolean; isWinner: boolean; isFadingOut: boolean; collectDx?: number; collectDy?: number }>`
   position: relative;
-  /* Stesse proporzioni della carta (0.65): l'immagine riempie senza bande */
-  width: 60px;
+  /* Stesse proporzioni della carta (0.65): l'immagine riempie senza bande.
+     Più piccole delle carte in mano: sul tavolo non devono coprire il tallone */
+  width: 50px;
   aspect-ratio: 0.65;
   filter: drop-shadow(0 5px 10px rgba(0, 0, 0, 0.45));
 
   @media (min-width: 769px) {
-    width: 80px;
+    width: 68px;
   }
 
   @media (max-height: 520px) {
-    width: 52px;
+    width: 44px;
   }
 
   /* Raccolta: le carte scivolano verso il vincitore e svaniscono */
@@ -817,6 +836,62 @@ const TurnHint = styled.div<{ mine: boolean }>`
   @media (max-height: 520px) {
     font-size: 9px;
     padding: 1px 0 0;
+  }
+`;
+
+// ===== PUSH-TO-TALK =====
+const PttButton = styled.button<{ $active: boolean; $denied: boolean }>`
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  width: 54px;
+  height: 54px;
+  border-radius: 50%;
+  border: 2px solid ${props => props.$denied ? 'rgba(230,57,70,0.6)' : props.$active ? '#3ddc78' : 'rgba(212,160,23,0.4)'};
+  background: ${props => props.$active ? 'rgba(61,220,120,0.18)' : 'rgba(10,16,10,0.85)'};
+  color: ${props => props.$denied ? '#e63946' : props.$active ? '#3ddc78' : '#d4a017'};
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 80;
+  cursor: pointer;
+  touch-action: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+  box-shadow: 0 4px 14px rgba(0, 0, 0, 0.5);
+  transition: transform 120ms, border-color 120ms, background 120ms;
+
+  &:active {
+    transform: scale(1.08);
+  }
+
+  ${props => props.$active && css`
+    animation: ${talkPulse} 1.2s ease-in-out infinite;
+  `}
+
+  @media (max-height: 520px) {
+    width: 44px;
+    height: 44px;
+    right: 8px;
+    bottom: 6px;
+  }
+`;
+
+const PttHint = styled.span`
+  position: absolute;
+  right: 12px;
+  bottom: 68px;
+  font-size: 8px;
+  letter-spacing: 1px;
+  text-transform: uppercase;
+  color: ${DESIGN.colors.text.tertiary};
+  font-weight: 700;
+  z-index: 80;
+  pointer-events: none;
+
+  @media (max-height: 520px) {
+    display: none;
   }
 `;
 
@@ -1083,6 +1158,30 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     setSoundOn(!soundOn);
   };
 
+  // Voce push-to-talk (P2P, zero server)
+  const { micStatus, isTalking, startTalking, stopTalking, voiceSupported } =
+    useVoiceChat(players, currentPlayerId);
+
+  // Desktop: barra spaziatrice = push-to-talk (ignorata mentre scrivi in chat)
+  useEffect(() => {
+    const down = (e: KeyboardEvent) => {
+      if (e.code !== 'Space' || e.repeat) return;
+      const tag = (e.target as HTMLElement)?.tagName;
+      if (tag === 'INPUT' || tag === 'TEXTAREA') return;
+      e.preventDefault();
+      startTalking();
+    };
+    const up = (e: KeyboardEvent) => {
+      if (e.code === 'Space') stopTalking();
+    };
+    window.addEventListener('keydown', down);
+    window.addEventListener('keyup', up);
+    return () => {
+      window.removeEventListener('keydown', down);
+      window.removeEventListener('keyup', up);
+    };
+  }, [startTalking, stopTalking]);
+
   // Colore del tavolo: scelta personale, salvata sul dispositivo
   const [tableTheme, setTableTheme] = useState<TableTheme>(TABLE_THEMES[0]);
   const [showThemePicker, setShowThemePicker] = useState(false);
@@ -1094,15 +1193,20 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
   // Nome robusto: displayName → registro posti → 'Giocatore'
   // (mai il nickname casuale di Playroom)
-  const resolveSeatDisplay = (sid: string): { name: string; emoji: string; connected: boolean } => {
+  const resolveSeatDisplay = (sid: string): { name: string; emoji: string; connected: boolean; talking: boolean } => {
     const player = players.find(p => p.id === sid);
     const owner = gameState.seatOwners?.[sid];
     if (player) {
       const stateName = player.getState?.('displayName');
       const name = stateName ? getPlayerName(player) : (owner?.name || 'Giocatore');
-      return { name, emoji: getPlayerEmoji(player), connected: true };
+      return {
+        name,
+        emoji: getPlayerEmoji(player),
+        connected: true,
+        talking: player.getState?.('talking') === true,
+      };
     }
-    return { name: owner?.name || 'Giocatore', emoji: owner?.emoji || '🔌', connected: false };
+    return { name: owner?.name || 'Giocatore', emoji: owner?.emoji || '🔌', connected: false, talking: false };
   };
 
   // Online status
@@ -1399,12 +1503,13 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           const isActive = sid === activeTurnPlayerId;
           const isYou = sid === currentPlayerId;
           const playerTeam = teams ? teams[sid] : undefined;
-          const { name, emoji, connected } = resolveSeatDisplay(sid);
+          const { name, emoji, connected, talking } = resolveSeatDisplay(sid);
 
           return (
             <PlayerSeat key={sid} seat={seat} isActive={isActive} style={{ opacity: connected ? 1 : 0.55 }}>
               <SeatAvatar isActive={isActive} teamColor={playerTeam ? TEAM_COLORS[playerTeam] : undefined}>
                 {emoji}
+                {talking && connected && <TalkRing />}
               </SeatAvatar>
               <SeatName>
                 {isYou ? 'Tu' : name}
@@ -1421,6 +1526,27 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
             </PlayerSeat>
           );
         })}
+
+        {/* Push-to-talk: tieni premuto per parlare */}
+        {voiceSupported && (
+          <>
+            <PttHint>{micStatus === 'denied' ? 'mic negato' : 'tieni premuto'}</PttHint>
+            <PttButton
+              $active={isTalking}
+              $denied={micStatus === 'denied'}
+              title={micStatus === 'denied'
+                ? 'Microfono bloccato: consenti l\'accesso dalle impostazioni del browser'
+                : 'Tieni premuto per parlare (o barra spaziatrice)'}
+              onPointerDown={(e) => { e.preventDefault(); startTalking(); }}
+              onPointerUp={stopTalking}
+              onPointerLeave={stopTalking}
+              onPointerCancel={stopTalking}
+              onContextMenu={(e) => e.preventDefault()}
+            >
+              {micStatus === 'denied' ? <MicOff size={22} /> : <Mic size={22} />}
+            </PttButton>
+          </>
+        )}
       </TableArea>
 
       {/* Hint di turno sopra la mano */}

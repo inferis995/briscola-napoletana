@@ -45,7 +45,14 @@ export const useVoiceChat = (players: PlayerState[], currentPlayerId: string) =>
     RPC.register('voiceSignal', async (sig: VoiceSignal) => {
       meshRef.current?.handleSignal(sig);
     });
+    // Annuncia "sono pronto" a tutti: se qualcuno ci aveva già mandato
+    // l'offerta mentre non eravamo ancora in ascolto (e si era persa),
+    // ora riparte da capo — niente più ricariche di pagina per la voce.
+    // Doppio annuncio: subito e dopo 2s (copre gli ingressi molto lenti).
+    mesh.announce();
+    const reAnnounce = setTimeout(() => mesh.announce(), 2000);
     return () => {
+      clearTimeout(reAnnounce);
       try { myPlayerRef.current?.setState('talking', false, true); } catch {}
       mesh.destroy();
       meshRef.current = null;

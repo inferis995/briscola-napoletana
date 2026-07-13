@@ -5,9 +5,9 @@
 // difficili (NEXT_PUBLIC_TURN_URL / _USERNAME / _CREDENTIAL).
 
 export interface VoiceSignal {
-  to: string;
+  to: string; // player id oppure '*' (solo per 'hello')
   from: string;
-  kind: 'offer' | 'answer' | 'ice';
+  kind: 'offer' | 'answer' | 'ice' | 'hello';
   data: any;
 }
 
@@ -37,6 +37,7 @@ interface PeerEntry {
   makingOffer: boolean;
   polite: boolean;
   pendingIce: RTCIceCandidateInit[];
+  createdAt: number;
 }
 
 export class VoiceMesh {
@@ -46,9 +47,53 @@ export class VoiceMesh {
   private localStream: MediaStream | null = null;
   private destroyed = false;
 
+  private watchdogTimer: ReturnType<typeof setInterval> | null = null;
+
   constructor(myId: string, send: (sig: VoiceSignal) => void) {
     this.myId = myId;
     this.send = send;
+
+    // Watchdog auto-riparante: se una connessione resta ferma ("new"/"failed")
+    // per più di 8 secondi — es. la stretta di mano iniziale è andata persa
+    // perché l'altro non era ancora pronto — la si ricrea da zero, senza che
+    // il giocatore debba ricaricare la pagina.
+    this.watchdogTimer = setInterval(() => {
+      if (this.destroyed) return;
+      const now = Date.now();
+      this.peers.forEach((entry, id) => {
+        const st = entry.pc.connectionState;
+        const stuck = (st === 'new' || st === 'failed') && now - entry.createdAt > 8000;
+        if (!stuck) return;
+        if (!entry.polite) {
+          // Guida la ripartenza: nuova connessione, nuova offerta
+          this.closePeer(id, entry);
+          this.createPeer(id);
+        } else {
+          // Il lato "polite" non offre: chiede all'altro di ripartire
+          this.send({ to: id, from: this.myId, kind: 'hello', data: null });
+        }
+      });
+    }, 4000);
+  }
+
+  /** Annuncia "sono pronto" a tutti: chi ha connessioni ferme verso di noi riparte. */
+  announce(): void {
+    this.send({ to: '*', from: this.myId, kind: 'hello', data: null });
+  }
+
+  /** Un peer si è annunciato: crea la connessione se manca, o falla ripartire se è ferma. */
+  private onHello(from: string): void {
+    if (this.destroyed || from === this.myId) return;
+    const entry = this.peers.get(from);
+    if (!entry) {
+      this.createPeer(from);
+      return;
+    }
+    const st = entry.pc.connectionState;
+    if (!entry.polite && (st === 'new' || st === 'failed' || st === 'disconnected')) {
+      this.closePeer(from, entry);
+      this.createPeer(from);
+    }
   }
 
   hasMic(): boolean {
@@ -139,6 +184,7 @@ export class VoiceMesh {
       // "Perfect negotiation": in caso di offerte incrociate, il polite cede
       polite: this.myId > peerId,
       pendingIce: [],
+      createdAt: Date.now(),
     };
     this.peers.set(peerId, entry);
 
@@ -196,7 +242,13 @@ export class VoiceMesh {
   }
 
   async handleSignal(sig: VoiceSignal): Promise<void> {
-    if (this.destroyed || sig.to !== this.myId || sig.from === this.myId) return;
+    if (this.destroyed || sig.from === this.myId) return;
+    // 'hello' può essere diretto o broadcast ('*')
+    if (sig.kind === 'hello') {
+      if (sig.to === this.myId || sig.to === '*') this.onHello(sig.from);
+      return;
+    }
+    if (sig.to !== this.myId) return;
     const entry = this.peers.get(sig.from) || this.createPeer(sig.from);
     const { pc } = entry;
     try {
@@ -228,6 +280,10 @@ export class VoiceMesh {
 
   destroy(): void {
     this.destroyed = true;
+    if (this.watchdogTimer) {
+      clearInterval(this.watchdogTimer);
+      this.watchdogTimer = null;
+    }
     this.peers.forEach((entry, id) => this.closePeer(id, entry));
     this.localStream?.getTracks().forEach(t => t.stop());
     this.localStream = null;

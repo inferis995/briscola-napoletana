@@ -3,9 +3,7 @@
 // colore che preferisce, salvato in localStorage. Nessuna sincronizzazione:
 // zero impatto sul gameplay e sullo stato condiviso.
 
-export interface TableTheme {
-  id: string;
-  label: string;
+export interface TableColors {
   // Tonalità del feltro, dal centro al bordo
   feltLight: string;
   feltMid: string;
@@ -15,6 +13,16 @@ export interface TableTheme {
   bgCenter: string;
   bgEdge: string;
 }
+
+export interface TableTheme extends TableColors {
+  id: string;
+  label: string;
+  // Variante luminosa del panno (toni medi: le carte crema devono
+  // restare leggibili, mai pastello)
+  light: TableColors;
+}
+
+export type TableBrightness = 'classic' | 'light';
 
 export const TABLE_THEMES: TableTheme[] = [
   {
@@ -26,6 +34,14 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#072812',
     bgCenter: '#0f1f0f',
     bgEdge: '#050a05',
+    light: {
+      feltLight: '#35a566',
+      feltMid: '#27874f',
+      feltDark: '#1a6438',
+      feltEdge: '#114625',
+      bgCenter: '#17291b',
+      bgEdge: '#0a130c',
+    },
   },
   {
     id: 'blue',
@@ -36,6 +52,14 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#071e31',
     bgCenter: '#0c161f',
     bgEdge: '#04080d',
+    light: {
+      feltLight: '#3389bd',
+      feltMid: '#256b9c',
+      feltDark: '#184d74',
+      feltEdge: '#0f3452',
+      bgCenter: '#13212d',
+      bgEdge: '#081018',
+    },
   },
   {
     id: 'bordeaux',
@@ -46,6 +70,14 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#2b0a0f',
     bgCenter: '#190d10',
     bgEdge: '#0a0405',
+    light: {
+      feltLight: '#b53c4f',
+      feltMid: '#932b3d',
+      feltDark: '#6b1e2c',
+      feltEdge: '#47141e',
+      bgCenter: '#251317',
+      bgEdge: '#100608',
+    },
   },
   {
     id: 'brown',
@@ -56,6 +88,14 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#291c08',
     bgCenter: '#19130c',
     bgEdge: '#0a0704',
+    light: {
+      feltLight: '#a67f45',
+      feltMid: '#876334',
+      feltDark: '#654823',
+      feltEdge: '#443015',
+      bgCenter: '#221a10',
+      bgEdge: '#0e0a06',
+    },
   },
   {
     id: 'black',
@@ -66,10 +106,19 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#0c0e10',
     bgCenter: '#13151a',
     bgEdge: '#050607',
+    light: {
+      feltLight: '#68727d',
+      feltMid: '#515a64',
+      feltDark: '#3a4149',
+      feltEdge: '#272c32',
+      bgCenter: '#1b1e24',
+      bgEdge: '#0c0e11',
+    },
   },
 ];
 
 const LS_TABLE_THEME_KEY = 'briscola_table_theme';
+const LS_TABLE_BRIGHTNESS_KEY = 'briscola_table_brightness';
 
 export const getSavedTableTheme = (): TableTheme => {
   try {
@@ -85,3 +134,21 @@ export const saveTableTheme = (id: string): void => {
     localStorage.setItem(LS_TABLE_THEME_KEY, id);
   } catch {}
 };
+
+export const getSavedTableBrightness = (): TableBrightness => {
+  try {
+    return localStorage.getItem(LS_TABLE_BRIGHTNESS_KEY) === 'light' ? 'light' : 'classic';
+  } catch {
+    return 'classic';
+  }
+};
+
+export const saveTableBrightness = (b: TableBrightness): void => {
+  try {
+    localStorage.setItem(LS_TABLE_BRIGHTNESS_KEY, b);
+  } catch {}
+};
+
+/** Palette effettiva: tema + luminosità scelta. */
+export const resolveTableColors = (theme: TableTheme, brightness: TableBrightness): TableColors =>
+  brightness === 'light' ? theme.light : theme;

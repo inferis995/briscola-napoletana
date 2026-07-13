@@ -6,7 +6,7 @@ import { CardComponent } from '@/components/Card';
 import { MatchHistoryButton } from '@/components/MatchHistory';
 import { RulesPopup, RulesIcon } from '@/components/RulesPopup';
 import { QuickChatPopup, QuickChatBubble, QuickChatIcon } from '@/components/QuickChat';
-import { Wifi, WifiOff, Volume2, VolumeX, Palette, Mic, MicOff } from 'lucide-react';
+import { Wifi, WifiOff, Volume2, VolumeX, Palette, Mic, MicOff, History } from 'lucide-react';
 import packageJson from '../../package.json';
 import {
   DESIGN,
@@ -22,8 +22,19 @@ import { useTurnCountdown, TimerChip } from '@/components/shared/TurnTimer';
 import { useGameFeedback } from '@/components/shared/useGameFeedback';
 import { isSoundEnabled, setSoundEnabled } from '@/components/shared/soundEffects';
 import { TeammateHandReveal } from '@/components/TeammateHandReveal';
-import { TABLE_THEMES, TableTheme, getSavedTableTheme, saveTableTheme } from '@/components/shared/tableThemes';
+import {
+  TABLE_THEMES,
+  TableTheme,
+  TableColors,
+  TableBrightness,
+  getSavedTableTheme,
+  saveTableTheme,
+  getSavedTableBrightness,
+  saveTableBrightness,
+  resolveTableColors,
+} from '@/components/shared/tableThemes';
 import { useVoiceChat } from '@/components/shared/useVoiceChat';
+import { Confetti } from '@/components/shared/Confetti';
 
 // ===== TYPES =====
 type SeatPosition = 'bottom' | 'top' | 'left' | 'right' | 'topLeft' | 'topRight';
@@ -59,8 +70,27 @@ const talkPulse = keyframes`
   50% { box-shadow: 0 0 0 9px rgba(61, 220, 120, 0.08); }
 `;
 
+// Distribuzione a inizio smazzata: le carte volano dal tavolo alla mano
+const dealEntrance = keyframes`
+  0% { opacity: 0; transform: translateY(-42vh) rotate(-10deg) scale(0.6); }
+  55% { opacity: 1; }
+  100% { opacity: 1; transform: translateY(0) rotate(0deg) scale(1); }
+`;
+
+// La briscola si scopre con un flip di taglio
+const trumpReveal = keyframes`
+  0% { transform: translate(-50%, -50%) rotate(90deg) scaleX(0); opacity: 0; }
+  40% { opacity: 1; }
+  100% { transform: translate(-50%, -50%) rotate(90deg) scaleX(1); opacity: 1; }
+`;
+
+const sceneFadeIn = keyframes`
+  from { opacity: 0; }
+  to { opacity: 1; }
+`;
+
 // ===== MAIN CONTAINER =====
-const TableContainer = styled.div<{ $theme: TableTheme }>`
+const TableContainer = styled.div<{ $theme: TableColors }>`
   position: fixed;
   inset: 0;
   width: 100vw;
@@ -72,6 +102,7 @@ const TableContainer = styled.div<{ $theme: TableTheme }>`
   color: ${DESIGN.colors.text.primary};
   display: flex;
   flex-direction: column;
+  animation: ${sceneFadeIn} 350ms ease-out;
 
   /* Luce dall'alto + vignettatura + texture */
   &::before {
@@ -194,7 +225,7 @@ const TableArea = styled.div`
 `;
 
 // ===== OVAL FELT TABLE =====
-const FeltTable = styled.div<{ $theme: TableTheme }>`
+const FeltTable = styled.div<{ $theme: TableColors }>`
   position: absolute;
   top: 50%;
   left: 50%;
@@ -292,11 +323,13 @@ const CenterPile = styled.div`
   }
 `;
 
-// La briscola scoperta giace di traverso sotto il tallone (look classico)
+// La briscola scoperta giace di traverso sotto il tallone (look classico).
+// Al primo apparire si scopre con un flip di taglio.
 const TrumpUnder = styled.div`
   position: absolute;
   top: 50%;
   left: 62%;
+  animation: ${trumpReveal} 600ms 450ms both;
   width: 62px;
   height: 87px;
   transform: translate(-50%, -50%) rotate(90deg);
@@ -786,9 +819,12 @@ const HandCardBox = styled.div`
   }
 `;
 
-const HandCardWrapper = styled.div<{ entranceDelay: number }>`
+const HandCardWrapper = styled.div<{ entranceDelay: number; $deal?: boolean }>`
   flex-shrink: 0;
-  animation: ${handEntrance} 240ms ease-out ${props => props.entranceDelay}ms both;
+  animation: ${props => props.$deal ? dealEntrance : handEntrance}
+    ${props => props.$deal ? '520ms' : '240ms'}
+    ${props => props.$deal ? 'cubic-bezier(0.22, 1, 0.36, 1)' : 'ease-out'}
+    ${props => props.entranceDelay}ms both;
 `;
 
 // Ventaglio: rotazione/arco separati dall'entrance animation
@@ -925,6 +961,27 @@ const ThemePickerTitle = styled.div`
   text-align: center;
 `;
 
+const BrightnessRow = styled.div`
+  display: flex;
+  gap: 6px;
+  margin-bottom: 10px;
+`;
+
+const BrightnessButton = styled.button<{ $selected: boolean }>`
+  flex: 1;
+  padding: 5px 10px;
+  border-radius: 8px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+  text-transform: uppercase;
+  cursor: pointer;
+  border: 1.5px solid ${props => props.$selected ? '#d4a017' : 'rgba(212, 160, 23, 0.2)'};
+  background: ${props => props.$selected ? 'rgba(212, 160, 23, 0.16)' : 'transparent'};
+  color: ${props => props.$selected ? '#d4a017' : DESIGN.colors.text.tertiary};
+  transition: all 120ms;
+`;
+
 const SwatchRow = styled.div`
   display: flex;
   gap: 8px;
@@ -948,6 +1005,80 @@ const Swatch = styled.button<{ $color: string; $selected: boolean }>`
   ${props => props.$selected && css`
     box-shadow: 0 0 10px rgba(212, 160, 23, 0.5);
   `}
+`;
+
+// Mazzetto delle prese accanto all'avatar: pila di dorsi che cresce
+// (nessun numero: i punti restano segreti come da regola)
+const MiniPile = styled.div<{ $flip?: boolean }>`
+  position: absolute;
+  top: -2px;
+  ${props => props.$flip ? 'left: -20px;' : 'right: -20px;'}
+  width: 20px;
+  height: 28px;
+  border-radius: 3px;
+  background: url('/assets/cards/back.jpg') center / cover;
+  border: 1px solid rgba(0, 0, 0, 0.55);
+  box-shadow:
+    ${props => props.$flip ? '2px' : '-2px'} 2px 0 rgba(10, 16, 10, 0.9),
+    ${props => props.$flip ? '4px' : '-4px'} 4px 0 rgba(10, 16, 10, 0.55),
+    0 2px 6px rgba(0, 0, 0, 0.5);
+  transform: rotate(${props => props.$flip ? '-8deg' : '8deg'});
+  animation: ${cardSlideIn} 250ms ease-out;
+
+  @media (max-height: 520px) {
+    width: 15px;
+    height: 21px;
+  }
+`;
+
+// ===== ULTIMA PRESA =====
+const LastTrickPanel = styled.div`
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  z-index: 210;
+  background: rgba(10, 16, 10, 0.96);
+  border: 1px solid rgba(212, 160, 23, 0.35);
+  border-radius: 14px;
+  padding: 16px 20px;
+  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  animation: ${cardSlideIn} 180ms ease-out;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+`;
+
+const LastTrickCards = styled.div`
+  display: flex;
+  gap: 8px;
+`;
+
+const LastTrickCard = styled.div<{ $win: boolean }>`
+  width: 56px;
+  aspect-ratio: 0.65;
+  border-radius: 5px;
+  position: relative;
+
+  ${props => props.$win && css`
+    &::after {
+      content: '';
+      position: absolute;
+      inset: -3px;
+      border: 2px solid #d4a017;
+      border-radius: 7px;
+      box-shadow: 0 0 12px rgba(212, 160, 23, 0.5);
+      pointer-events: none;
+    }
+  `}
+`;
+
+const LastTrickPoints = styled.span`
+  font-size: 13px;
+  font-weight: 700;
+  color: #f0cf7a;
+  font-variant-numeric: tabular-nums;
 `;
 
 const ReconnectingTag = styled.span`
@@ -985,13 +1116,21 @@ const GameOverDialog = styled.div`
   border: 1px solid rgba(212,160,23,0.3);
   max-height: 85vh;
   overflow-y: auto;
+  animation: ${cardSlideIn} 280ms ease-out;
 `;
 
-const GameOverTitle = styled.h2`
+const GameOverTitle = styled.h2<{ $win?: boolean }>`
+  font-family: var(--font-display), 'Times New Roman', serif;
   font-size: clamp(28px, 5vw, 40px);
   font-weight: 700;
   margin: 0 0 16px 0;
+  letter-spacing: 1.5px;
   color: #d4a017;
+
+  ${props => props.$win && css`
+    color: #f0cf7a;
+    text-shadow: 0 0 26px rgba(212, 160, 23, 0.55);
+  `}
 `;
 
 const WinnerName = styled.div`
@@ -1184,12 +1323,42 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
   // Colore del tavolo: scelta personale, salvata sul dispositivo
   const [tableTheme, setTableTheme] = useState<TableTheme>(TABLE_THEMES[0]);
+  const [tableBrightness, setTableBrightness] = useState<TableBrightness>('classic');
   const [showThemePicker, setShowThemePicker] = useState(false);
-  useEffect(() => { setTableTheme(getSavedTableTheme()); }, []);
+  useEffect(() => {
+    setTableTheme(getSavedTableTheme());
+    setTableBrightness(getSavedTableBrightness());
+  }, []);
   const pickTheme = (t: TableTheme) => {
     setTableTheme(t);
     saveTableTheme(t.id);
   };
+  const pickBrightness = (b: TableBrightness) => {
+    setTableBrightness(b);
+    saveTableBrightness(b);
+  };
+  // Palette effettiva: tema scelto + luminosità (Classico/Chiaro)
+  const tableColors = resolveTableColors(tableTheme, tableBrightness);
+
+  // Ultima presa rivedibile
+  const [showLastTrick, setShowLastTrick] = useState(false);
+  const lastTrick = gameState.roundHistory.length > 0
+    ? gameState.roundHistory[gameState.roundHistory.length - 1]
+    : null;
+
+  // Suono di distribuzione a inizio smazzata (3 flip a scalare)
+  const dealKeyRef = useRef('');
+  useEffect(() => {
+    const key = `${gameState.smazzataNumber}_${gameState.trumpCard?.id ?? 'x'}`;
+    if (gameState.roundNumber !== 1 || gameState.phase !== 'playing' || dealKeyRef.current === key) return;
+    dealKeyRef.current = key;
+    const timers = [0, 150, 300].map(d => setTimeout(() => playCardFlipSound(), d));
+    return () => timers.forEach(clearTimeout);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [gameState.smazzataNumber, gameState.trumpCard?.id, gameState.roundNumber, gameState.phase]);
+
+  // La distribuzione animata (carte che volano in mano) solo alla prima mano
+  const isDealing = gameState.roundNumber === 1;
 
   // Nome robusto: displayName → registro posti → 'Giocatore'
   // (mai il nickname casuale di Playroom)
@@ -1270,12 +1439,29 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
     const winnerPlayer = winner ? players.find(p => p.id === winner) : null;
     const isDraw = !winner;
     const isTeamDraw = isTeamMode && (!gameState.winnerTeam || gameState.winnerTeam === 0);
+    // Ho vinto io? (o la mia squadra) → coriandoli e titolo dorato
+    const iWon = isTeamMode
+      ? (!!gameState.winnerTeam && !isTeamDraw && teams![currentPlayerId] === gameState.winnerTeam)
+      : (!!winner && winner === currentPlayerId);
+    const titleText = gameState.endedEarly
+      ? 'PARTITA INTERROTTA'
+      : iWon
+        ? 'HAI VINTO!'
+        : (isTeamMode ? isTeamDraw : isDraw)
+          ? 'PAREGGIO'
+          : 'PARTITA FINITA';
 
     return (
-      <TableContainer $theme={tableTheme}>
+      <TableContainer $theme={tableColors}>
+        {iWon && !gameState.endedEarly && <Confetti />}
         <GameOverOverlay>
           <GameOverDialog>
-            <GameOverTitle>PARTITA FINITA</GameOverTitle>
+            <GameOverTitle $win={iWon && !gameState.endedEarly}>{titleText}</GameOverTitle>
+            {gameState.endedEarly && (
+              <div style={{ margin: '-6px 0 12px', fontSize: '12px', color: DESIGN.colors.accents.pink, fontWeight: 600 }}>
+                Un giocatore ha lasciato — punteggi al momento dell'interruzione
+              </div>
+            )}
             {isTeamMode ? (
               <>
                 <WinnerName style={{ color: isTeamDraw ? DESIGN.colors.accents.cyan : TEAM_COLORS[gameState.winnerTeam!] }}>
@@ -1359,7 +1545,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
   if (gameState.phase === 'smazzata_complete') {
     const scores = gameState.finalScores;
     return (
-      <TableContainer $theme={tableTheme}>
+      <TableContainer $theme={tableColors}>
         <GameOverOverlay>
           <GameOverDialog>
             <GameOverTitle>SMAZZATA 1</GameOverTitle>
@@ -1398,7 +1584,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
   // ===== GAME VIEW (Round Table) =====
   return (
-    <TableContainer $theme={tableTheme}>
+    <TableContainer $theme={tableColors}>
       {/* Top Bar */}
       <TopBar>
         <TopBarTitle>
@@ -1415,6 +1601,11 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           <TopBarButton onClick={() => setShowThemePicker(v => !v)} title="Colore del tavolo">
             <Palette size={15} />
           </TopBarButton>
+          {lastTrick && (
+            <TopBarButton onClick={() => setShowLastTrick(true)} title="Rivedi l'ultima presa">
+              <History size={15} />
+            </TopBarButton>
+          )}
           <TopBarButton onClick={() => setShowRules(true)} title="Come si gioca">
             <RulesIcon />
           </TopBarButton>
@@ -1434,7 +1625,7 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
 
       {/* Table Area */}
       <TableArea>
-        <FeltTable $theme={tableTheme}>
+        <FeltTable $theme={tableColors}>
           {/* Tallone col dorso vero + briscola coricata sotto, ancorati al feltro */}
           <CenterPile>
             {gameState.trumpCard && gameState.deck.length > 0 && (
@@ -1510,6 +1701,9 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
               <SeatAvatar isActive={isActive} teamColor={playerTeam ? TEAM_COLORS[playerTeam] : undefined}>
                 {emoji}
                 {talking && connected && <TalkRing />}
+                {(gameState.playerStacks[sid]?.length ?? 0) > 0 && (
+                  <MiniPile $flip={seat === 'right'} title="Prese fatte" />
+                )}
               </SeatAvatar>
               <SeatName>
                 {isYou ? 'Tu' : name}
@@ -1570,7 +1764,8 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           return (
             <HandCardWrapper
               key={`${gameState.roundNumber}_${card.id}`}
-              entranceDelay={idx * 70}
+              entranceDelay={idx * (isDealing ? 150 : 70)}
+              $deal={isDealing}
             >
               <FanWrap style={{ transform: `rotate(${fanRotation}deg) translateY(${fanDrop}px)` }}>
                 <CardLift
@@ -1625,11 +1820,25 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
           <ThemeScrim onClick={() => setShowThemePicker(false)} />
           <ThemePickerPanel>
             <ThemePickerTitle>Colore tavolo</ThemePickerTitle>
+            <BrightnessRow>
+              <BrightnessButton
+                $selected={tableBrightness === 'classic'}
+                onClick={() => pickBrightness('classic')}
+              >
+                Classico
+              </BrightnessButton>
+              <BrightnessButton
+                $selected={tableBrightness === 'light'}
+                onClick={() => pickBrightness('light')}
+              >
+                Chiaro
+              </BrightnessButton>
+            </BrightnessRow>
             <SwatchRow>
               {TABLE_THEMES.map(t => (
                 <Swatch
                   key={t.id}
-                  $color={t.feltMid}
+                  $color={resolveTableColors(t, tableBrightness).feltMid}
                   $selected={t.id === tableTheme.id}
                   title={t.label}
                   onClick={() => pickTheme(t)}
@@ -1637,6 +1846,34 @@ export const RoundTableGameUI: React.FC<GameUIProps> = ({
               ))}
             </SwatchRow>
           </ThemePickerPanel>
+        </>
+      )}
+
+      {/* Ultima presa */}
+      {showLastTrick && lastTrick && (
+        <>
+          <ThemeScrim onClick={() => setShowLastTrick(false)} />
+          <LastTrickPanel onClick={() => setShowLastTrick(false)}>
+            <ThemePickerTitle>
+              Ultima presa — {lastTrick.winnerId === currentPlayerId ? 'tua' : resolveSeatDisplay(lastTrick.winnerId).name}
+            </ThemePickerTitle>
+            <LastTrickCards>
+              {lastTrick.playedCards.map((pc, i) => (
+                <LastTrickCard key={i} $win={pc.playerId === lastTrick.winnerId}>
+                  <CardComponent
+                    card={pc.card}
+                    onClick={() => {}}
+                    transform=""
+                    colors={cardColors}
+                    fillContainer
+                  />
+                </LastTrickCard>
+              ))}
+            </LastTrickCards>
+            <LastTrickPoints>
+              +{lastTrick.playedCards.reduce((t, pc) => t + pc.card.score, 0)} punti
+            </LastTrickPoints>
+          </LastTrickPanel>
         </>
       )}
 

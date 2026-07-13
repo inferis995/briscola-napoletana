@@ -1,5 +1,6 @@
 import type { Metadata, Viewport } from "next";
 import { Cinzel } from "next/font/google";
+import { RegisterSW } from "@/components/RegisterSW";
 import "./globals.css";
 
 // Font display per titoli e wordmark: classico, da tavolo da gioco.
@@ -13,7 +14,16 @@ const cinzel = Cinzel({
 
 export const metadata: Metadata = {
   title: "Briscola Napoletana",
-  description: "Gioca a Briscola online con carte napoletane",
+  description: "Briscola con carte napoletane — multiplayer in tempo reale con gli amici",
+  manifest: "/manifest.json",
+  icons: {
+    apple: "/icons/apple-touch-icon.png",
+  },
+  appleWebApp: {
+    capable: true,
+    title: "Briscola",
+    statusBarStyle: "black-translucent",
+  },
 };
 
 export const viewport: Viewport = {
@@ -23,6 +33,7 @@ export const viewport: Viewport = {
   userScalable: false,
   viewportFit: 'cover',
   interactiveWidget: 'resizes-content',
+  themeColor: '#0a120a',
 };
 
 export default function RootLayout({
@@ -33,6 +44,7 @@ export default function RootLayout({
   return (
     <html lang="it" className={cinzel.variable}>
       <body>
+        <RegisterSW />
         {children}
       </body>
     </html>

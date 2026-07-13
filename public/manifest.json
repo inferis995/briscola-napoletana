@@ -1,0 +1,25 @@
+{
+  "name": "Briscola Napoletana",
+  "short_name": "Briscola",
+  "description": "Briscola con carte napoletane — multiplayer in tempo reale con gli amici",
+  "start_url": "/",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#0a120a",
+  "theme_color": "#0a120a",
+  "lang": "it",
+  "icons": [
+    {
+      "src": "/icons/icon-192.png",
+      "sizes": "192x192",
+      "type": "image/png",
+      "purpose": "any maskable"
+    },
+    {
+      "src": "/icons/icon-512.png",
+      "sizes": "512x512",
+      "type": "image/png",
+      "purpose": "any maskable"
+    }
+  ]
+}

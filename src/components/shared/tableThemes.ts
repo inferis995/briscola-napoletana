@@ -12,6 +12,13 @@ export interface TableColors {
   // Sfondo della scena dietro il tavolo
   bgCenter: string;
   bgEdge: string;
+  // Cornice del tavolo: 4 tappe del gradiente dell'essenza di legno
+  woodA: string;
+  woodB: string;
+  woodC: string;
+  woodD: string;
+  // Filo decorativo interno (oro; argento sul tema grafite)
+  trim: string;
 }
 
 export interface TableTheme extends TableColors {
@@ -34,6 +41,12 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#072812',
     bgCenter: '#0f1f0f',
     bgEdge: '#050a05',
+    // Noce classico
+    woodA: '#5a3d1e',
+    woodB: '#33200c',
+    woodC: '#45290f',
+    woodD: '#1e1206',
+    trim: 'rgba(212, 160, 23, 0.16)',
     light: {
       feltLight: '#35a566',
       feltMid: '#27874f',
@@ -41,6 +54,12 @@ export const TABLE_THEMES: TableTheme[] = [
       feltEdge: '#114625',
       bgCenter: '#17291b',
       bgEdge: '#0a130c',
+      // Rovere naturale chiaro
+      woodA: '#a17a45',
+      woodB: '#7a5a2f',
+      woodC: '#8c6836',
+      woodD: '#5e4423',
+      trim: 'rgba(240, 207, 122, 0.28)',
     },
   },
   {
@@ -52,6 +71,12 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#071e31',
     bgCenter: '#0c161f',
     bgEdge: '#04080d',
+    // Wengé freddo
+    woodA: '#4c4842',
+    woodB: '#2a2824',
+    woodC: '#3a3730',
+    woodD: '#1a1816',
+    trim: 'rgba(212, 160, 23, 0.16)',
     light: {
       feltLight: '#3389bd',
       feltMid: '#256b9c',
@@ -59,6 +84,12 @@ export const TABLE_THEMES: TableTheme[] = [
       feltEdge: '#0f3452',
       bgCenter: '#13212d',
       bgEdge: '#081018',
+      // Wengé chiaro / grigio caldo
+      woodA: '#726d63',
+      woodB: '#514d45',
+      woodC: '#615c52',
+      woodD: '#3c3931',
+      trim: 'rgba(212, 160, 23, 0.24)',
     },
   },
   {
@@ -70,6 +101,12 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#2b0a0f',
     bgCenter: '#190d10',
     bgEdge: '#0a0405',
+    // Mogano rossiccio
+    woodA: '#6c3620',
+    woodB: '#3e1d12',
+    woodC: '#54291a',
+    woodD: '#24100a',
+    trim: 'rgba(212, 160, 23, 0.16)',
     light: {
       feltLight: '#b53c4f',
       feltMid: '#932b3d',
@@ -77,6 +114,12 @@ export const TABLE_THEMES: TableTheme[] = [
       feltEdge: '#47141e',
       bgCenter: '#251317',
       bgEdge: '#100608',
+      // Mogano chiaro
+      woodA: '#9c583a',
+      woodB: '#6f3d27',
+      woodC: '#844b30',
+      woodD: '#532d1d',
+      trim: 'rgba(240, 207, 122, 0.26)',
     },
   },
   {
@@ -88,6 +131,12 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#291c08',
     bgCenter: '#19130c',
     bgEdge: '#0a0704',
+    // Rovere caldo scuro
+    woodA: '#6d5028',
+    woodB: '#402f15',
+    woodC: '#584018',
+    woodD: '#2a1d0a',
+    trim: 'rgba(212, 160, 23, 0.16)',
     light: {
       feltLight: '#a67f45',
       feltMid: '#876334',
@@ -95,6 +144,12 @@ export const TABLE_THEMES: TableTheme[] = [
       feltEdge: '#443015',
       bgCenter: '#221a10',
       bgEdge: '#0e0a06',
+      // Faggio chiaro
+      woodA: '#a67e46',
+      woodB: '#7e5f32',
+      woodC: '#916d3b',
+      woodD: '#604824',
+      trim: 'rgba(240, 207, 122, 0.28)',
     },
   },
   {
@@ -106,6 +161,12 @@ export const TABLE_THEMES: TableTheme[] = [
     feltEdge: '#0c0e10',
     bgCenter: '#13151a',
     bgEdge: '#050607',
+    // Grafite / nero opaco (niente legno)
+    woodA: '#3a3d42',
+    woodB: '#1f2226',
+    woodC: '#2c2f34',
+    woodD: '#131417',
+    trim: 'rgba(184, 192, 200, 0.20)',
     light: {
       feltLight: '#68727d',
       feltMid: '#515a64',
@@ -113,6 +174,12 @@ export const TABLE_THEMES: TableTheme[] = [
       feltEdge: '#272c32',
       bgCenter: '#1b1e24',
       bgEdge: '#0c0e11',
+      // Nickel chiaro
+      woodA: '#5c616a',
+      woodB: '#40444a',
+      woodC: '#4c515a',
+      woodD: '#2f3238',
+      trim: 'rgba(214, 220, 226, 0.28)',
     },
   },
 ];

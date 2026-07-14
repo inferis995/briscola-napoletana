@@ -261,7 +261,7 @@ const FeltTable = styled.div<{ $theme: TableColors }>`
         transparent 9px,
         transparent 15px
       ),
-      linear-gradient(145deg, #5a3d1e 0%, #33200c 40%, #45290f 65%, #1e1206 100%);
+      linear-gradient(145deg, ${props => props.$theme.woodA} 0%, ${props => props.$theme.woodB} 40%, ${props => props.$theme.woodC} 65%, ${props => props.$theme.woodD} 100%);
     box-shadow:
       0 18px 60px rgba(0, 0, 0, 0.8),
       inset 0 2px 3px rgba(255, 255, 255, 0.18),
@@ -269,13 +269,13 @@ const FeltTable = styled.div<{ $theme: TableColors }>`
     z-index: -1;
   }
 
-  /* Filo dorato interno */
+  /* Filo interno (oro; argento sul tema grafite) */
   &::after {
     content: '';
     position: absolute;
     inset: 10px;
     border-radius: 50%;
-    border: 1.5px solid rgba(212, 160, 23, 0.16);
+    border: 1.5px solid ${props => props.$theme.trim};
     box-shadow: inset 0 0 24px rgba(0, 0, 0, 0.25);
     pointer-events: none;
   }

@@ -275,6 +275,7 @@ export default function ClassificaDalVivo() {
                 <Board>
                   <BoardTitle>🏆 Settimana</BoardTitle>
                   <BoardHint>{fromKey(weekStart).getDate()}–{fromKey(weekEnd).getDate()} {MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}</BoardHint>
+                  {weekRows.length > 0 && <ColHead>vinte / giocate</ColHead>}
                   {weekRows.map((r, i) => (
                     <BoardRow key={r.id} $lead={i === 0}><Rank>{i + 1}</Rank><Dot style={{ background: r.color }} /><BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins></BoardRow>
                   ))}
@@ -283,6 +284,7 @@ export default function ClassificaDalVivo() {
                 <Board>
                   <BoardTitle>📅 Mese</BoardTitle>
                   <BoardHint>{MESI[selected.getMonth()]}</BoardHint>
+                  {monthRows.length > 0 && <ColHead>vinte / giocate</ColHead>}
                   {monthRows.map((r, i) => (
                     <BoardRow key={r.id} $lead={i === 0}><Rank>{i + 1}</Rank><Dot style={{ background: r.color }} /><BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins></BoardRow>
                   ))}
@@ -478,6 +480,7 @@ const BoardCols = styled.div` margin-top: 12px; display: grid; grid-template-col
 const Board = styled.div` background: rgba(19,33,19,0.55); border: 1px solid rgba(212,160,23,0.12); border-radius: 16px; padding: 16px; `;
 const BoardTitle = styled.h3` font-family: var(--font-display), serif; font-size: 15px; margin: 0; letter-spacing: 0.5px; `;
 const BoardHint = styled.div` font-size: 11px; color: #77837b; margin: 2px 0 12px; text-transform: capitalize; `;
+const ColHead = styled.div` font-size: 9px; color: #5c6659; text-transform: uppercase; letter-spacing: 0.5px; text-align: right; margin: -6px 0 6px; font-weight: 700; `;
 const BoardRow = styled.div<{ $lead?: boolean }>` display: flex; align-items: center; gap: 9px; padding: 8px 9px; border-radius: 9px; margin-bottom: 5px; background: ${(p) => (p.$lead ? "rgba(212,160,23,0.12)" : "rgba(10,16,10,0.5)")}; border: 1px solid ${(p) => (p.$lead ? "rgba(212,160,23,0.4)" : "transparent")}; `;
 const Rank = styled.span` width: 16px; font-size: 13px; font-weight: 800; color: #77837b; font-variant-numeric: tabular-nums; `;
 const BoardName = styled.span` flex: 1; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; `;

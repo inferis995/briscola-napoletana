@@ -290,14 +290,15 @@ export default function ClassificaDalVivo() {
                     <H2hList>
                       {h2hRows.map((r) => (
                         <H2hRow key={r.id}>
-                          <VsTag>vs</VsTag>
-                          <Dot style={{ background: r.color }} />
-                          <H2hName>{r.label}</H2hName>
-                          <H2hScore>
-                            <b style={{ color: r.w >= r.l ? "#f0cf7a" : "#a09880" }}>{r.w}</b>
-                            <span>–</span>
-                            <b style={{ color: r.l > r.w ? "#ff8b96" : "#a09880" }}>{r.l}</b>
-                          </H2hScore>
+                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                            <VsTag>vs</VsTag>
+                            <Dot style={{ background: r.color }} />
+                            <H2hName>{r.label}</H2hName>
+                          </div>
+                          <H2hStats>
+                            <Stat $c="#f0cf7a"><b>{r.w}</b><small>vinte</small></Stat>
+                            <Stat $c="#ff8b96"><b>{r.l}</b><small>perse</small></Stat>
+                          </H2hStats>
                         </H2hRow>
                       ))}
                     </H2hList>
@@ -444,6 +445,13 @@ const H2hList = styled.div` display: flex; flex-direction: column; gap: 6px; `;
 const H2hRow = styled.div` display: flex; align-items: center; gap: 10px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 10px 12px; `;
 const H2hName = styled.span` flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; `;
 const H2hScore = styled.span` display: flex; align-items: center; gap: 6px; font-size: 18px; font-variant-numeric: tabular-nums; span { color: #5c6659; } `;
+const H2hStats = styled.div` display: flex; gap: 8px; flex-shrink: 0; `;
+const Stat = styled.span<{ $c: string }>`
+  display: flex; flex-direction: column; align-items: center; min-width: 40px;
+  background: rgba(10,16,10,0.6); border-radius: 8px; padding: 4px 8px;
+  b { font-size: 18px; font-weight: 800; color: ${(p) => p.$c}; font-variant-numeric: tabular-nums; line-height: 1; }
+  small { font-size: 9px; color: #77837b; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px; }
+`;
 
 const ManageToggle = styled.button` width: 100%; margin-top: 14px; background: rgba(19,33,19,0.4); border: 1px solid rgba(212,160,23,0.12); color: #a09880; font-size: 14px; font-weight: 600; padding: 13px; border-radius: 12px; cursor: pointer; &:hover { color: #d4a017; } `;
 const ChipList = styled.div` display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; `;

@@ -224,12 +224,12 @@ export default function ClassificaDalVivo() {
                   </>
                 ) : (
                   <WinnerPick>
-                    <StepHint>2 · Chi ha vinto?</StepHint>
+                    <StepHint>2 · Tocca la coppia che ha VINTO 🏆</StepHint>
                     <WinBtns>
                       <WinBtn $color={colorOf(pair[0])} onClick={() => recordWin(pair[0], pair[1])}>
                         <Dot style={{ background: colorOf(pair[0]) }} />{labelById(pair[0])}
                       </WinBtn>
-                      <Vs>batte</Vs>
+                      <Vs>oppure</Vs>
                       <WinBtn $color={colorOf(pair[1])} onClick={() => recordWin(pair[1], pair[0])}>
                         <Dot style={{ background: colorOf(pair[1]) }} />{labelById(pair[1])}
                       </WinBtn>

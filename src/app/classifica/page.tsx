@@ -19,6 +19,7 @@ const COLORS = ["#d4a017", "#2196f3", "#e63946", "#35a566", "#a06cd5", "#ff8c42"
 const LS_PIN = "briscola_live_pin";
 
 type BoardMode = "couples" | "players";
+type Period = "week" | "month" | "all";
 
 export default function ClassificaDalVivo() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -30,6 +31,8 @@ export default function ClassificaDalVivo() {
   const [selected, setSelected] = useState<Date>(new Date());
   const [showCal, setShowCal] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
+  const [period, setPeriod] = useState<Period>("week");
+  const [toast, setToast] = useState("");
   const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
   const [h2hView, setH2hView] = useState<"one" | "all">("one");
@@ -70,6 +73,20 @@ export default function ClassificaDalVivo() {
 
   useEffect(() => { load(); loadMeta(); }, [load, loadMeta]);
 
+  // Aggiornamento in tempo reale: se qualcuno modifica da un altro
+  // dispositivo, la classifica si aggiorna da sola su tutti.
+  useEffect(() => {
+    const ch = supabase
+      .channel("classifica-live")
+      .on("postgres_changes", { event: "*", schema: "public", table: "players" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "couples" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "matches" }, () => load())
+      .subscribe();
+    return () => { supabase.removeChannel(ch); };
+  }, [load]);
+
+  const flash = (m: string) => { setToast(m); window.setTimeout(() => setToast(""), 1600); };
+
   // ===== DERIVATI =====
   const playerName = useCallback((id: string) => players.find((p) => p.id === id)?.name || "?", [players]);
   const coupleLabel = useCallback((c: Couple) => `${playerName(c.player1_id)} & ${playerName(c.player2_id)}`, [playerName]);
@@ -103,8 +120,8 @@ export default function ClassificaDalVivo() {
     }).filter((x) => x.g > 0).sort((a, b) => b.w - a.w || b.g - a.g);
 
   const boardFn = boardMode === "couples" ? coupleBoard : playerBoard;
-  const weekRows = useMemo(() => boardFn(inWeek), [boardMode, couples, players, matches, weekStart, weekEnd]); // eslint-disable-line
-  const monthRows = useMemo(() => boardFn(inMonth), [boardMode, couples, players, matches, monthPrefix]); // eslint-disable-line
+  const rangeFn = period === "week" ? inWeek : period === "month" ? inMonth : () => true;
+  const boardRows = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, weekStart, weekEnd, monthPrefix]); // eslint-disable-line
 
   // Scontri diretti (all-time) della coppia scelta
   const h2hId = h2h || activeCouples[0]?.id || couples[0]?.id || "";
@@ -171,7 +188,7 @@ export default function ClassificaDalVivo() {
     if (!unlocked) { openUnlock(); return; }
     supabase.rpc("add_match", { pin, d: selKey, winner, loser }).then(({ error }) => {
       if (error) { if (String(error.message || "").includes("PIN")) lock(); setErr("Non riuscito."); }
-      else { setPair([]); }
+      else { setPair([]); flash("✓ Partita registrata"); }
       load();
     });
   };
@@ -271,27 +288,30 @@ export default function ClassificaDalVivo() {
                 <ModeBtn $on={boardMode === "couples"} onClick={() => setBoardMode("couples")}>Coppie</ModeBtn>
                 <ModeBtn $on={boardMode === "players"} onClick={() => setBoardMode("players")}>Giocatori</ModeBtn>
               </ModeToggle>
-              <BoardCols>
-                <Board>
-                  <BoardTitle>🏆 Settimana</BoardTitle>
-                  <BoardHint>{fromKey(weekStart).getDate()}–{fromKey(weekEnd).getDate()} {MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}</BoardHint>
-                  {weekRows.length > 0 && <ColHead>vinte / giocate</ColHead>}
-                  {weekRows.map((r, i) => (
-                    <BoardRow key={r.id} $lead={i === 0}><Rank>{i + 1}</Rank><Dot style={{ background: r.color }} /><BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins></BoardRow>
-                  ))}
-                  {weekRows.length === 0 && <MiniEmpty>Nessuna partita</MiniEmpty>}
-                </Board>
-                <Board>
-                  <BoardTitle>📅 Mese</BoardTitle>
-                  <BoardHint>{MESI[selected.getMonth()]}</BoardHint>
-                  {monthRows.length > 0 && <ColHead>vinte / giocate</ColHead>}
-                  {monthRows.map((r, i) => (
-                    <BoardRow key={r.id} $lead={i === 0}><Rank>{i + 1}</Rank><Dot style={{ background: r.color }} /><BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins></BoardRow>
-                  ))}
-                  {monthRows.length === 0 && <MiniEmpty>Nessuna partita</MiniEmpty>}
-                </Board>
-              </BoardCols>
-              <Legend>Vittorie / partite giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}</Legend>
+              <ModeToggle style={{ marginTop: 8 }}>
+                <ModeBtn $on={period === "week"} onClick={() => setPeriod("week")}>Settimana</ModeBtn>
+                <ModeBtn $on={period === "month"} onClick={() => setPeriod("month")}>Mese</ModeBtn>
+                <ModeBtn $on={period === "all"} onClick={() => setPeriod("all")}>Sempre</ModeBtn>
+              </ModeToggle>
+              <Board style={{ marginTop: 12 }}>
+                <BoardTitle>
+                  {period === "week" ? "🏆 Settimana" : period === "month" ? "📅 Mese" : "⭐ Sempre"}
+                </BoardTitle>
+                <BoardHint>
+                  {period === "week"
+                    ? `${fromKey(weekStart).getDate()}–${fromKey(weekEnd).getDate()} ${MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}`
+                    : period === "month" ? MESI[selected.getMonth()] : "storico completo"}
+                </BoardHint>
+                {boardRows.length > 0 && <ColHead>vinte / giocate</ColHead>}
+                {boardRows.map((r, i) => (
+                  <BoardRow key={r.id} $lead={i === 0}>
+                    <Rank>{i + 1}</Rank><Dot style={{ background: r.color }} />
+                    <BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>
+                  </BoardRow>
+                ))}
+                {boardRows.length === 0 && <MiniEmpty>Nessuna partita in questo periodo</MiniEmpty>}
+              </Board>
+              <Legend>Vinte / giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}</Legend>
 
               {/* ===== SCONTRI DIRETTI ===== */}
               {couples.length >= 2 && (
@@ -395,6 +415,8 @@ export default function ClassificaDalVivo() {
           )}
         </Container>
 
+        {toast && <Toast>{toast}</Toast>}
+
         {pinModal && (
           <ModalScrim onClick={() => setPinModal(null)}>
             <Modal onClick={(e) => e.stopPropagation()}>
@@ -415,6 +437,15 @@ export default function ClassificaDalVivo() {
 }
 
 // ===== STILI =====
+const Toast = styled.div`
+  position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%);
+  background: #14522f; color: #f5f0e8; border: 1px solid #35a566;
+  padding: 12px 22px; border-radius: 12px; font-size: 15px; font-weight: 700;
+  z-index: 200; box-shadow: 0 8px 30px rgba(0,0,0,0.6);
+  animation: toastIn 180ms ease-out;
+  @keyframes toastIn { from { opacity: 0; transform: translateX(-50%) translateY(12px); } to { opacity: 1; transform: translateX(-50%) translateY(0); } }
+`;
+
 const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #0a120a; }
   .rdp-root { --rdp-accent-color: #d4a017; --rdp-accent-background-color: rgba(212,160,23,0.18); --rdp-today-color: #35a566; --rdp-day-width: 40px; --rdp-day-height: 40px; --rdp-day_button-width: 40px; --rdp-day_button-height: 40px; margin: 0 auto; color: #f5f0e8; }
@@ -476,7 +507,6 @@ const MatchText = styled.span` flex: 1; font-size: 14px; color: #d5cdb8; b { col
 
 const ModeToggle = styled.div` display: flex; gap: 6px; margin-top: 16px; background: rgba(10,16,10,0.5); padding: 4px; border-radius: 11px; `;
 const ModeBtn = styled.button<{ $on?: boolean }>` flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; background: ${(p) => (p.$on ? "#d4a017" : "transparent")}; color: ${(p) => (p.$on ? "#0a120a" : "#a09880")}; `;
-const BoardCols = styled.div` margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; @media (max-width: 520px) { grid-template-columns: 1fr; } `;
 const Board = styled.div` background: rgba(19,33,19,0.55); border: 1px solid rgba(212,160,23,0.12); border-radius: 16px; padding: 16px; `;
 const BoardTitle = styled.h3` font-family: var(--font-display), serif; font-size: 15px; margin: 0; letter-spacing: 0.5px; `;
 const BoardHint = styled.div` font-size: 11px; color: #77837b; margin: 2px 0 12px; text-transform: capitalize; `;

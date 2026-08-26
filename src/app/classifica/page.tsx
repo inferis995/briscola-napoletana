@@ -32,6 +32,7 @@ export default function ClassificaDalVivo() {
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
   const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
+  const [h2hView, setH2hView] = useState<"one" | "all">("one");
   const [showManage, setShowManage] = useState(false);
 
   // PIN
@@ -115,6 +116,20 @@ export default function ClassificaDalVivo() {
       return { id: o.id, label: coupleLabel(o), color: colorOf(o.id), w, l };
     }).filter((x) => x.w + x.l > 0).sort((a, b) => (b.w + b.l) - (a.w + a.l));
   }, [h2hId, couples, matches, coupleLabel]); // eslint-disable-line
+
+  // Tutti gli scontri: ogni coppia di coppie che ha giocato, punteggio unico
+  const allH2h = useMemo(() => {
+    const rows: { key: string; aLabel: string; bLabel: string; aColor: string; bColor: string; aw: number; bw: number }[] = [];
+    for (let i = 0; i < couples.length; i++) {
+      for (let j = i + 1; j < couples.length; j++) {
+        const a = couples[i], b = couples[j];
+        const aw = matches.filter((m) => m.winner_couple_id === a.id && m.loser_couple_id === b.id).length;
+        const bw = matches.filter((m) => m.winner_couple_id === b.id && m.loser_couple_id === a.id).length;
+        if (aw + bw > 0) rows.push({ key: a.id + b.id, aLabel: coupleLabel(a), bLabel: coupleLabel(b), aColor: colorOf(a.id), bColor: colorOf(b.id), aw, bw });
+      }
+    }
+    return rows.sort((x, y) => (y.aw + y.bw) - (x.aw + x.bw));
+  }, [couples, matches, coupleLabel]); // eslint-disable-line
 
   // ===== PIN =====
   const lock = () => { setUnlocked(false); setPin(""); try { localStorage.removeItem(LS_PIN); } catch {} };
@@ -280,30 +295,62 @@ export default function ClassificaDalVivo() {
               {couples.length >= 2 && (
                 <Section>
                   <SectionTitle>Scontri diretti</SectionTitle>
-                  <H2hLabel>Bilancio di</H2hLabel>
-                  <H2hSelect value={h2hId} onChange={(e) => setH2h(e.target.value)}>
-                    {couples.map((c) => <option key={c.id} value={c.id}>{coupleLabel(c)}</option>)}
-                  </H2hSelect>
-                  {h2hRows.length === 0 ? (
-                    <MiniEmpty>Questa coppia non ha ancora giocato scontri</MiniEmpty>
+                  <ModeToggle>
+                    <ModeBtn $on={h2hView === "one"} onClick={() => setH2hView("one")}>La mia coppia</ModeBtn>
+                    <ModeBtn $on={h2hView === "all"} onClick={() => setH2hView("all")}>Tutti gli scontri</ModeBtn>
+                  </ModeToggle>
+
+                  {h2hView === "one" ? (
+                    <div style={{ marginTop: 14 }}>
+                      <H2hLabel>Bilancio di</H2hLabel>
+                      <H2hSelect value={h2hId} onChange={(e) => setH2h(e.target.value)}>
+                        {couples.map((c) => <option key={c.id} value={c.id}>{coupleLabel(c)}</option>)}
+                      </H2hSelect>
+                      {h2hRows.length === 0 ? (
+                        <MiniEmpty>Questa coppia non ha ancora giocato scontri</MiniEmpty>
+                      ) : (
+                        <H2hList>
+                          {h2hRows.map((r) => (
+                            <H2hRow key={r.id}>
+                              <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
+                                <VsTag>vs</VsTag><Dot style={{ background: r.color }} /><H2hName>{r.label}</H2hName>
+                              </div>
+                              <H2hStats>
+                                <Stat $c="#f0cf7a"><b>{r.w}</b><small>vinte</small></Stat>
+                                <Stat $c="#ff8b96"><b>{r.l}</b><small>perse</small></Stat>
+                              </H2hStats>
+                            </H2hRow>
+                          ))}
+                        </H2hList>
+                      )}
+                      <Legend style={{ marginTop: 10 }}>Per ogni avversaria: vinte – perse della coppia scelta (storico)</Legend>
+                    </div>
                   ) : (
-                    <H2hList>
-                      {h2hRows.map((r) => (
-                        <H2hRow key={r.id}>
-                          <div style={{ flex: 1, minWidth: 0, display: "flex", alignItems: "center", gap: 8 }}>
-                            <VsTag>vs</VsTag>
-                            <Dot style={{ background: r.color }} />
-                            <H2hName>{r.label}</H2hName>
-                          </div>
-                          <H2hStats>
-                            <Stat $c="#f0cf7a"><b>{r.w}</b><small>vinte</small></Stat>
-                            <Stat $c="#ff8b96"><b>{r.l}</b><small>perse</small></Stat>
-                          </H2hStats>
-                        </H2hRow>
-                      ))}
-                    </H2hList>
+                    <div style={{ marginTop: 14 }}>
+                      {allH2h.length === 0 ? (
+                        <MiniEmpty>Nessuno scontro registrato</MiniEmpty>
+                      ) : (
+                        <MatchupList>
+                          {allH2h.map((r) => (
+                            <MatchupRow key={r.key}>
+                              <MTeam $win={r.aw > r.bw} style={{ textAlign: "right" }}>
+                                <MDot style={{ background: r.aColor }} />{r.aLabel}
+                              </MTeam>
+                              <MScore>
+                                <MNum style={{ color: r.aColor }} $win={r.aw > r.bw}>{r.aw}</MNum>
+                                <span>–</span>
+                                <MNum style={{ color: r.bColor }} $win={r.bw > r.aw}>{r.bw}</MNum>
+                              </MScore>
+                              <MTeam $win={r.bw > r.aw}>
+                                {r.bLabel}<MDot style={{ background: r.bColor }} />
+                              </MTeam>
+                            </MatchupRow>
+                          ))}
+                        </MatchupList>
+                      )}
+                      <Legend style={{ marginTop: 10 }}>Punteggio dello scontro tra le due coppie (storico)</Legend>
+                    </div>
                   )}
-                  <Legend style={{ marginTop: 10 }}>Per ogni avversaria: vittorie – sconfitte della coppia scelta (storico)</Legend>
                 </Section>
               )}
 
@@ -446,6 +493,18 @@ const H2hRow = styled.div` display: flex; align-items: center; gap: 10px; backgr
 const H2hName = styled.span` flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; `;
 const H2hScore = styled.span` display: flex; align-items: center; gap: 6px; font-size: 18px; font-variant-numeric: tabular-nums; span { color: #5c6659; } `;
 const H2hStats = styled.div` display: flex; gap: 8px; flex-shrink: 0; `;
+// Vista "Tutti gli scontri": NomeA  3 – 2  NomeB
+const MatchupList = styled.div` display: flex; flex-direction: column; gap: 7px; `;
+const MatchupRow = styled.div` display: grid; grid-template-columns: 1fr auto 1fr; align-items: center; gap: 8px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 10px 10px; `;
+const MTeam = styled.div<{ $win?: boolean }>`
+  display: flex; align-items: center; gap: 6px; min-width: 0; font-size: 13px; line-height: 1.25;
+  font-weight: ${(p) => (p.$win ? 800 : 600)}; color: ${(p) => (p.$win ? "#f5f0e8" : "#a09880")};
+  ${(p) => p.$win === false ? "" : ""}
+  & > * { }
+`;
+const MDot = styled.span` width: 9px; height: 9px; border-radius: 50%; flex-shrink: 0; `;
+const MScore = styled.div` display: flex; align-items: center; gap: 6px; flex-shrink: 0; span { color: #5c6659; font-size: 15px; } `;
+const MNum = styled.b<{ $win?: boolean }>` font-size: ${(p) => (p.$win ? 22 : 19)}px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1; `;
 const Stat = styled.span<{ $c: string }>`
   display: flex; flex-direction: column; align-items: center; min-width: 40px;
   background: rgba(10,16,10,0.6); border-radius: 8px; padding: 4px 8px;

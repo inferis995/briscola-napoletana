@@ -280,15 +280,17 @@ export default function ClassificaDalVivo() {
               {couples.length >= 2 && (
                 <Section>
                   <SectionTitle>Scontri diretti</SectionTitle>
+                  <H2hLabel>Bilancio di</H2hLabel>
                   <H2hSelect value={h2hId} onChange={(e) => setH2h(e.target.value)}>
                     {couples.map((c) => <option key={c.id} value={c.id}>{coupleLabel(c)}</option>)}
                   </H2hSelect>
                   {h2hRows.length === 0 ? (
-                    <MiniEmpty>Nessuno scontro registrato</MiniEmpty>
+                    <MiniEmpty>Questa coppia non ha ancora giocato scontri</MiniEmpty>
                   ) : (
                     <H2hList>
                       {h2hRows.map((r) => (
                         <H2hRow key={r.id}>
+                          <VsTag>vs</VsTag>
                           <Dot style={{ background: r.color }} />
                           <H2hName>{r.label}</H2hName>
                           <H2hScore>
@@ -300,7 +302,7 @@ export default function ClassificaDalVivo() {
                       ))}
                     </H2hList>
                   )}
-                  <Legend style={{ marginTop: 10 }}>Vittorie – sconfitte della coppia scelta (storico)</Legend>
+                  <Legend style={{ marginTop: 10 }}>Per ogni avversaria: vittorie – sconfitte della coppia scelta (storico)</Legend>
                 </Section>
               )}
 
@@ -435,6 +437,8 @@ const BoardWins = styled.span` font-size: 19px; font-weight: 800; color: #f0cf7a
 const Games = styled.span` font-size: 12px; color: #77837b; font-weight: 600; `;
 const Legend = styled.p` text-align: center; font-size: 11px; color: #5c6659; margin: 8px 0 0; `;
 
+const H2hLabel = styled.div` font-size: 12px; color: #a09880; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 6px; `;
+const VsTag = styled.span` font-size: 10px; font-weight: 800; color: #77837b; text-transform: uppercase; width: 20px; flex-shrink: 0; `;
 const H2hSelect = styled.select` width: 100%; padding: 11px 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: rgba(10,16,10,0.8); color: #f5f0e8; font-size: 15px; font-weight: 600; outline: none; margin-bottom: 12px; &:focus { border-color: #d4a017; } `;
 const H2hList = styled.div` display: flex; flex-direction: column; gap: 6px; `;
 const H2hRow = styled.div` display: flex; align-items: center; gap: 10px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 10px 12px; `;

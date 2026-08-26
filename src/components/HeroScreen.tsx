@@ -178,6 +178,25 @@ const Subtitle = styled.p`
   font-weight: 500;
 `;
 
+const LiveBoardButton = styled.button`
+  background: rgba(212, 160, 23, 0.1);
+  border: 1.5px solid rgba(212, 160, 23, 0.4);
+  color: #d4a017;
+  font-size: 13px;
+  font-weight: 700;
+  letter-spacing: 1px;
+  padding: 11px 20px;
+  border-radius: 10px;
+  cursor: pointer;
+  transition: all 150ms;
+
+  &:hover {
+    background: rgba(212, 160, 23, 0.2);
+    border-color: #d4a017;
+    transform: translateY(-1px);
+  }
+`;
+
 const FooterVersion = styled.span`
   font-size: 10px;
   color: ${DESIGN.colors.text.tertiary};
@@ -640,6 +659,10 @@ export const HeroScreen: React.FC<HeroScreenProps> = ({
       <RulesButton onClick={() => setShowRules(true)} style={{ marginTop: '16px' }}>
         <RulesIcon /> COME SI GIOCA
       </RulesButton>
+
+      <a href="/classifica" style={{ textDecoration: 'none', marginTop: '10px' }}>
+        <LiveBoardButton>🏆 CLASSIFICA DAL VIVO</LiveBoardButton>
+      </a>
 
       <FooterVersion>v{packageJson.version}</FooterVersion>
 

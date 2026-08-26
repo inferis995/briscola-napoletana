@@ -25,10 +25,9 @@ export interface Couple {
   active: boolean;
   created_at: string;
 }
-export interface Match {
+export interface DayWin {
   id: string;
   played_on: string; // YYYY-MM-DD
-  winner_couple_id: string;
-  loser_couple_id: string;
-  created_at: string;
+  couple_id: string;
+  wins: number;
 }

@@ -14,6 +14,7 @@ const fromKey = (s: string) => new Date(s + "T00:00:00");
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
 const mondayOf = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
 const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+const GIORNI = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const COLORS = ["#d4a017", "#2196f3", "#e63946", "#35a566", "#a06cd5", "#ff8c42", "#e0b0ff", "#4dd0c1"];
 const LS_PIN = "briscola_live_pin";
 
@@ -27,7 +28,10 @@ export default function ClassificaDalVivo() {
   const [err, setErr] = useState<string | null>(null);
 
   const [selected, setSelected] = useState<Date>(new Date());
+  const [showCal, setShowCal] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
+  const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
+  const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
   const [showManage, setShowManage] = useState(false);
 
   // PIN
@@ -38,12 +42,9 @@ export default function ClassificaDalVivo() {
   const [pinInput, setPinInput] = useState("");
   const [pinErr, setPinErr] = useState("");
 
-  // form
   const [newPlayer, setNewPlayer] = useState("");
   const [c1, setC1] = useState("");
   const [c2, setC2] = useState("");
-  const [winnerId, setWinnerId] = useState("");
-  const [loserId, setLoserId] = useState("");
 
   const load = useCallback(async () => {
     setErr(null);
@@ -53,11 +54,7 @@ export default function ClassificaDalVivo() {
       supabase.from("matches").select("*").order("created_at"),
     ]);
     if (p.error || c.error || m.error) setErr("Errore di connessione. Tocca per riprovare.");
-    else {
-      setPlayers(p.data as Player[]);
-      setCouples(c.data as Couple[]);
-      setMatches(m.data as Match[]);
-    }
+    else { setPlayers(p.data as Player[]); setCouples(c.data as Couple[]); setMatches(m.data as Match[]); }
     setLoading(false);
   }, []);
 
@@ -65,12 +62,8 @@ export default function ClassificaDalVivo() {
     const { data: isSet } = await supabase.rpc("pin_is_set");
     setPinSet(!!isSet);
     if (isSet) {
-      let saved = "";
-      try { saved = localStorage.getItem(LS_PIN) || ""; } catch {}
-      if (saved) {
-        const { data: ok } = await supabase.rpc("verify_pin", { candidate: saved });
-        if (ok) { setPin(saved); setUnlocked(true); }
-      }
+      let saved = ""; try { saved = localStorage.getItem(LS_PIN) || ""; } catch {}
+      if (saved) { const { data: ok } = await supabase.rpc("verify_pin", { candidate: saved }); if (ok) { setPin(saved); setUnlocked(true); } }
     }
   }, []);
 
@@ -79,7 +72,7 @@ export default function ClassificaDalVivo() {
   // ===== DERIVATI =====
   const playerName = useCallback((id: string) => players.find((p) => p.id === id)?.name || "?", [players]);
   const coupleLabel = useCallback((c: Couple) => `${playerName(c.player1_id)} & ${playerName(c.player2_id)}`, [playerName]);
-  const coupleById = useCallback((id: string) => couples.find((c) => c.id === id), [couples]);
+  const labelById = useCallback((id: string) => { const c = couples.find((x) => x.id === id); return c ? coupleLabel(c) : "?"; }, [couples, coupleLabel]);
   const colorOf = (id: string) => COLORS[Math.max(0, couples.findIndex((c) => c.id === id)) % COLORS.length];
   const activeCouples = couples.filter((c) => c.active);
 
@@ -89,34 +82,39 @@ export default function ClassificaDalVivo() {
 
   const weekStart = toKey(mondayOf(selected));
   const weekEnd = toKey(addDays(mondayOf(selected), 6));
-  const inWeek = (day: string) => day >= weekStart && day <= weekEnd;
+  const inWeek = (d: string) => d >= weekStart && d <= weekEnd;
   const monthPrefix = `${selected.getFullYear()}-${pad(selected.getMonth() + 1)}`;
-  const inMonth = (day: string) => day.startsWith(monthPrefix);
+  const inMonth = (d: string) => d.startsWith(monthPrefix);
 
-  const coupleBoard = (inRange: (d: string) => boolean) =>
-    couples
-      .map((c) => {
-        const won = matches.filter((m) => inRange(m.played_on) && m.winner_couple_id === c.id).length;
-        const tot = matches.filter((m) => inRange(m.played_on) && (m.winner_couple_id === c.id || m.loser_couple_id === c.id)).length;
-        return { id: c.id, label: coupleLabel(c), color: colorOf(c.id), w: won, g: tot };
-      })
-      .filter((r) => r.g > 0)
-      .sort((a, b) => b.w - a.w || b.g - a.g);
+  const coupleBoard = (r: (d: string) => boolean) =>
+    couples.map((c) => {
+      const w = matches.filter((m) => r(m.played_on) && m.winner_couple_id === c.id).length;
+      const g = matches.filter((m) => r(m.played_on) && (m.winner_couple_id === c.id || m.loser_couple_id === c.id)).length;
+      return { id: c.id, label: coupleLabel(c), color: colorOf(c.id), w, g };
+    }).filter((x) => x.g > 0).sort((a, b) => b.w - a.w || b.g - a.g);
 
-  const playerBoard = (inRange: (d: string) => boolean) =>
-    players
-      .map((p) => {
-        const ids = couples.filter((c) => c.player1_id === p.id || c.player2_id === p.id).map((c) => c.id);
-        const won = matches.filter((m) => inRange(m.played_on) && ids.includes(m.winner_couple_id)).length;
-        const tot = matches.filter((m) => inRange(m.played_on) && (ids.includes(m.winner_couple_id) || ids.includes(m.loser_couple_id))).length;
-        return { id: p.id, label: p.name, color: "#d4a017", w: won, g: tot };
-      })
-      .filter((r) => r.g > 0)
-      .sort((a, b) => b.w - a.w || b.g - a.g);
+  const playerBoard = (r: (d: string) => boolean) =>
+    players.map((p) => {
+      const ids = couples.filter((c) => c.player1_id === p.id || c.player2_id === p.id).map((c) => c.id);
+      const w = matches.filter((m) => r(m.played_on) && ids.includes(m.winner_couple_id)).length;
+      const g = matches.filter((m) => r(m.played_on) && (ids.includes(m.winner_couple_id) || ids.includes(m.loser_couple_id))).length;
+      return { id: p.id, label: p.name, color: "#d4a017", w, g };
+    }).filter((x) => x.g > 0).sort((a, b) => b.w - a.w || b.g - a.g);
 
   const boardFn = boardMode === "couples" ? coupleBoard : playerBoard;
   const weekRows = useMemo(() => boardFn(inWeek), [boardMode, couples, players, matches, weekStart, weekEnd]); // eslint-disable-line
   const monthRows = useMemo(() => boardFn(inMonth), [boardMode, couples, players, matches, monthPrefix]); // eslint-disable-line
+
+  // Scontri diretti (all-time) della coppia scelta
+  const h2hId = h2h || activeCouples[0]?.id || couples[0]?.id || "";
+  const h2hRows = useMemo(() => {
+    if (!h2hId) return [];
+    return couples.filter((c) => c.id !== h2hId).map((o) => {
+      const w = matches.filter((m) => m.winner_couple_id === h2hId && m.loser_couple_id === o.id).length;
+      const l = matches.filter((m) => m.winner_couple_id === o.id && m.loser_couple_id === h2hId).length;
+      return { id: o.id, label: coupleLabel(o), color: colorOf(o.id), w, l };
+    }).filter((x) => x.w + x.l > 0).sort((a, b) => (b.w + b.l) - (a.w + a.l));
+  }, [h2hId, couples, matches, coupleLabel]); // eslint-disable-line
 
   // ===== PIN =====
   const lock = () => { setUnlocked(false); setPin(""); try { localStorage.removeItem(LS_PIN); } catch {} };
@@ -146,15 +144,28 @@ export default function ClassificaDalVivo() {
     load();
   };
 
-  const recordMatch = () => {
-    if (!winnerId || !loserId || winnerId === loserId) return;
-    guard("add_match", { d: selKey, winner: winnerId, loser: loserId });
+  // Selezione rapida coppie per registrare
+  const tapCouple = (id: string) => {
+    setPair((prev) => {
+      if (prev.includes(id)) return prev.filter((x) => x !== id);
+      if (prev.length >= 2) return [id];
+      return [...prev, id];
+    });
   };
+  const recordWin = (winner: string, loser: string) => {
+    if (!unlocked) { openUnlock(); return; }
+    supabase.rpc("add_match", { pin, d: selKey, winner, loser }).then(({ error }) => {
+      if (error) { if (String(error.message || "").includes("PIN")) lock(); setErr("Non riuscito."); }
+      else { setPair([]); }
+      load();
+    });
+  };
+
   const addPlayer = () => { const n = newPlayer.trim(); if (!n) return; setNewPlayer(""); guard("add_player", { p_name: n }); };
   const createCouple = () => { if (!c1 || !c2 || c1 === c2) return; const a = c1, b = c2; setC1(""); setC2(""); guard("add_couple", { p1: a, p2: b }); };
 
-  const selLabel = `${selected.getDate()} ${MESI[selected.getMonth()]} ${selected.getFullYear()}`;
   const isToday = selKey === toKey(new Date());
+  const dow = GIORNI[(selected.getDay() + 6) % 7];
 
   return (
     <>
@@ -162,79 +173,80 @@ export default function ClassificaDalVivo() {
       <Page>
         <TopBar>
           <a href="/" style={{ textDecoration: "none" }}><BackBtn>← App</BackBtn></a>
-          <Title>Classifica dal Vivo</Title>
-          <LockBtn onClick={() => (unlocked ? lock() : openUnlock())} title={unlocked ? "Blocca" : "Sblocca per modificare"}>
-            {unlocked ? "🔓" : "🔒"}
-          </LockBtn>
+          <Title>Classifica</Title>
+          <LockBtn onClick={() => (unlocked ? lock() : openUnlock())} title={unlocked ? "Blocca" : "Sblocca"}>{unlocked ? "🔓" : "🔒"}</LockBtn>
         </TopBar>
 
         <Container>
-          <Sub>Partite di briscola giocate al tavolo. Salvato online e condiviso: chiunque apra la pagina vede la stessa classifica.</Sub>
           {err && <ErrorBox onClick={() => { setErr(null); load(); }}>{err}</ErrorBox>}
           {!unlocked && !loading && (
-            <LockBar onClick={openUnlock}>
-              🔒 Sola lettura — {pinSet === false ? "imposta un PIN" : "inserisci il PIN"} per modificare
-            </LockBar>
+            <LockBar onClick={openUnlock}>🔒 Sola lettura — {pinSet === false ? "imposta un PIN" : "inserisci il PIN"} per registrare</LockBar>
           )}
 
-          {loading ? (
-            <Loading>Caricamento…</Loading>
-          ) : (
+          {loading ? <Loading>Caricamento…</Loading> : (
             <>
-              {/* ===== CALENDARIO ===== */}
-              <Section>
-                <SectionTitle>Calendario</SectionTitle>
-                <CalWrap>
-                  <DayPicker
-                    mode="single" required selected={selected}
-                    onSelect={(d) => d && setSelected(d)}
+              {/* ===== NAV GIORNO ===== */}
+              <DayNav>
+                <NavArrow onClick={() => setSelected((d) => addDays(d, -1))}>‹</NavArrow>
+                <DayCenter onClick={() => setShowCal((s) => !s)}>
+                  <DayBig>{dow} {selected.getDate()}{isToday && <Oggi>OGGI</Oggi>}</DayBig>
+                  <DaySmall>{MESI[selected.getMonth()]} {selected.getFullYear()} · {dayMatches.length} {dayMatches.length === 1 ? "partita" : "partite"} 📅</DaySmall>
+                </DayCenter>
+                <NavArrow onClick={() => setSelected((d) => addDays(d, 1))}>›</NavArrow>
+              </DayNav>
+              {showCal && (
+                <CalCard>
+                  <DayPicker mode="single" required selected={selected}
+                    onSelect={(d) => { if (d) { setSelected(d); setShowCal(false); } }}
                     locale={it} weekStartsOn={1} showOutsideDays
-                    modifiers={{ played: playedDays }} modifiersClassNames={{ played: "rdp-played" }}
-                  />
-                </CalWrap>
-              </Section>
+                    modifiers={{ played: playedDays }} modifiersClassNames={{ played: "rdp-played" }} />
+                </CalCard>
+              )}
 
-              {/* ===== PARTITE DEL GIORNO ===== */}
+              {/* ===== REGISTRA PARTITA ===== */}
               <Section>
-                <SectionTitle>
-                  {selLabel}{isToday && <Oggi>OGGI</Oggi>}
-                  <DayCount>{dayMatches.length} {dayMatches.length === 1 ? "partita" : "partite"}</DayCount>
-                </SectionTitle>
-
+                <SectionTitle>Registra partita</SectionTitle>
                 {activeCouples.length < 2 ? (
-                  <Empty>Servono almeno <b>due coppie attive</b> per registrare una partita.</Empty>
+                  <Empty>Servono almeno <b>due coppie attive</b>. Creale in “Giocatori e coppie”.</Empty>
+                ) : pair.length < 2 ? (
+                  <>
+                    <StepHint>{pair.length === 0 ? "1 · Tocca le due coppie che hanno giocato" : "Tocca la seconda coppia"}</StepHint>
+                    <ChipGrid>
+                      {activeCouples.map((c) => {
+                        const on = pair.includes(c.id);
+                        return (
+                          <CoupleChip key={c.id} $on={on} $color={colorOf(c.id)} onClick={() => tapCouple(c.id)}>
+                            <Dot style={{ background: colorOf(c.id) }} />{coupleLabel(c)}
+                          </CoupleChip>
+                        );
+                      })}
+                    </ChipGrid>
+                  </>
                 ) : (
-                  <RecordBox>
-                    <RecLabel>Chi ha vinto?</RecLabel>
-                    <Select value={winnerId} onChange={(e) => { setWinnerId(e.target.value); if (e.target.value === loserId) setLoserId(""); }}>
-                      <option value="">— coppia vincitrice —</option>
-                      {activeCouples.map((c) => <option key={c.id} value={c.id}>{coupleLabel(c)}</option>)}
-                    </Select>
-                    <RecLabel>Contro quale coppia?</RecLabel>
-                    <Select value={loserId} onChange={(e) => setLoserId(e.target.value)}>
-                      <option value="">— coppia perdente —</option>
-                      {activeCouples.filter((c) => c.id !== winnerId).map((c) => <option key={c.id} value={c.id}>{coupleLabel(c)}</option>)}
-                    </Select>
-                    <RecordBtn onClick={recordMatch} disabled={!winnerId || !loserId || winnerId === loserId}>
-                      + Registra vittoria
-                    </RecordBtn>
-                    {!unlocked && <WinsHint>🔒 Sblocca in alto a destra per registrare.</WinsHint>}
-                  </RecordBox>
+                  <WinnerPick>
+                    <StepHint>2 · Chi ha vinto?</StepHint>
+                    <WinBtns>
+                      <WinBtn $color={colorOf(pair[0])} onClick={() => recordWin(pair[0], pair[1])}>
+                        <Dot style={{ background: colorOf(pair[0]) }} />{labelById(pair[0])}
+                      </WinBtn>
+                      <Vs>batte</Vs>
+                      <WinBtn $color={colorOf(pair[1])} onClick={() => recordWin(pair[1], pair[0])}>
+                        <Dot style={{ background: colorOf(pair[1]) }} />{labelById(pair[1])}
+                      </WinBtn>
+                    </WinBtns>
+                    <ClearBtn onClick={() => setPair([])}>← Cambia coppie</ClearBtn>
+                  </WinnerPick>
                 )}
 
                 {dayMatches.length > 0 && (
                   <MatchList>
-                    {dayMatches.map((m) => {
-                      const w = coupleById(m.winner_couple_id);
-                      const l = coupleById(m.loser_couple_id);
-                      return (
-                        <MatchRow key={m.id}>
-                          <Dot style={{ background: colorOf(m.winner_couple_id) }} />
-                          <MatchText><b>{w ? coupleLabel(w) : "?"}</b> batte {l ? coupleLabel(l) : "?"}</MatchText>
-                          {unlocked && <Del onClick={() => guard("delete_match", { m_id: m.id })} title="Elimina">×</Del>}
-                        </MatchRow>
-                      );
-                    })}
+                    {dayMatches.map((m) => (
+                      <MatchRow key={m.id}>
+                        <Dot style={{ background: colorOf(m.winner_couple_id) }} />
+                        <MatchText><b>{labelById(m.winner_couple_id)}</b> batte {labelById(m.loser_couple_id)}</MatchText>
+                        {unlocked && <Del onClick={() => guard("delete_match", { m_id: m.id })}>×</Del>}
+                      </MatchRow>
+                    ))}
                   </MatchList>
                 )}
               </Section>
@@ -249,10 +261,7 @@ export default function ClassificaDalVivo() {
                   <BoardTitle>🏆 Settimana</BoardTitle>
                   <BoardHint>{fromKey(weekStart).getDate()}–{fromKey(weekEnd).getDate()} {MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}</BoardHint>
                   {weekRows.map((r, i) => (
-                    <BoardRow key={r.id} $lead={i === 0}>
-                      <Rank>{i + 1}</Rank><Dot style={{ background: r.color }} />
-                      <BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>
-                    </BoardRow>
+                    <BoardRow key={r.id} $lead={i === 0}><Rank>{i + 1}</Rank><Dot style={{ background: r.color }} /><BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins></BoardRow>
                   ))}
                   {weekRows.length === 0 && <MiniEmpty>Nessuna partita</MiniEmpty>}
                 </Board>
@@ -260,62 +269,71 @@ export default function ClassificaDalVivo() {
                   <BoardTitle>📅 Mese</BoardTitle>
                   <BoardHint>{MESI[selected.getMonth()]}</BoardHint>
                   {monthRows.map((r, i) => (
-                    <BoardRow key={r.id} $lead={i === 0}>
-                      <Rank>{i + 1}</Rank><Dot style={{ background: r.color }} />
-                      <BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>
-                    </BoardRow>
+                    <BoardRow key={r.id} $lead={i === 0}><Rank>{i + 1}</Rank><Dot style={{ background: r.color }} /><BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins></BoardRow>
                   ))}
                   {monthRows.length === 0 && <MiniEmpty>Nessuna partita</MiniEmpty>}
                 </Board>
               </BoardCols>
               <Legend>Vittorie / partite giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}</Legend>
 
+              {/* ===== SCONTRI DIRETTI ===== */}
+              {couples.length >= 2 && (
+                <Section>
+                  <SectionTitle>Scontri diretti</SectionTitle>
+                  <H2hSelect value={h2hId} onChange={(e) => setH2h(e.target.value)}>
+                    {couples.map((c) => <option key={c.id} value={c.id}>{coupleLabel(c)}</option>)}
+                  </H2hSelect>
+                  {h2hRows.length === 0 ? (
+                    <MiniEmpty>Nessuno scontro registrato</MiniEmpty>
+                  ) : (
+                    <H2hList>
+                      {h2hRows.map((r) => (
+                        <H2hRow key={r.id}>
+                          <Dot style={{ background: r.color }} />
+                          <H2hName>{r.label}</H2hName>
+                          <H2hScore>
+                            <b style={{ color: r.w >= r.l ? "#f0cf7a" : "#a09880" }}>{r.w}</b>
+                            <span>–</span>
+                            <b style={{ color: r.l > r.w ? "#ff8b96" : "#a09880" }}>{r.l}</b>
+                          </H2hScore>
+                        </H2hRow>
+                      ))}
+                    </H2hList>
+                  )}
+                  <Legend style={{ marginTop: 10 }}>Vittorie – sconfitte della coppia scelta (storico)</Legend>
+                </Section>
+              )}
+
               {/* ===== GESTIONE ===== */}
-              <ManageToggle onClick={() => setShowManage((s) => !s)}>
-                {showManage ? "▲ Nascondi" : "▼ Giocatori e coppie"}
-              </ManageToggle>
+              <ManageToggle onClick={() => setShowManage((s) => !s)}>{showManage ? "▲ Nascondi" : "▼ Giocatori e coppie"}</ManageToggle>
               {showManage && (
                 <Section>
-                  {!unlocked && <Empty style={{ marginBottom: 12 }}>🔒 Sblocca in alto a destra per aggiungere o rimuovere.</Empty>}
+                  {!unlocked && <Empty style={{ marginBottom: 12 }}>🔒 Sblocca in alto a destra per modificare.</Empty>}
                   <SectionTitle style={{ fontSize: 16 }}>Giocatori</SectionTitle>
                   <ChipList>
-                    {players.map((p) => (
-                      <Chip key={p.id}>{p.name}{unlocked && <Del onClick={() => guard("delete_player", { p_id: p.id })}>×</Del>}</Chip>
-                    ))}
+                    {players.map((p) => <Chip key={p.id}>{p.name}{unlocked && <Del onClick={() => guard("delete_player", { p_id: p.id })}>×</Del>}</Chip>)}
                     {players.length === 0 && <Empty>Aggiungi i giocatori uno per uno.</Empty>}
                   </ChipList>
                   {unlocked && (
                     <AddRow>
-                      <Input placeholder="Nome giocatore" value={newPlayer} maxLength={16}
-                        onChange={(e) => setNewPlayer(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addPlayer()} />
+                      <Input placeholder="Nome giocatore" value={newPlayer} maxLength={16} onChange={(e) => setNewPlayer(e.target.value)} onKeyDown={(e) => e.key === "Enter" && addPlayer()} />
                       <AddBtn onClick={addPlayer} disabled={!newPlayer.trim()}>+ Giocatore</AddBtn>
                     </AddRow>
                   )}
-
                   <SectionTitle style={{ fontSize: 16, marginTop: 24 }}>Coppie</SectionTitle>
                   <CoupleMngList>
                     {couples.map((c) => (
                       <CoupleMngRow key={c.id} $off={!c.active}>
-                        <Dot style={{ background: colorOf(c.id) }} />
-                        <span style={{ flex: 1 }}>{coupleLabel(c)}</span>
-                        {unlocked && <>
-                          <SmallBtn onClick={() => guard("set_couple_active", { c_id: c.id, a: !c.active })}>{c.active ? "Sospendi" : "Riattiva"}</SmallBtn>
-                          <Del onClick={() => guard("delete_couple", { c_id: c.id })}>×</Del>
-                        </>}
+                        <Dot style={{ background: colorOf(c.id) }} /><span style={{ flex: 1 }}>{coupleLabel(c)}</span>
+                        {unlocked && <><SmallBtn onClick={() => guard("set_couple_active", { c_id: c.id, a: !c.active })}>{c.active ? "Sospendi" : "Riattiva"}</SmallBtn><Del onClick={() => guard("delete_couple", { c_id: c.id })}>×</Del></>}
                       </CoupleMngRow>
                     ))}
                     {couples.length === 0 && <Empty>Forma una coppia scegliendo due giocatori.</Empty>}
                   </CoupleMngList>
                   {unlocked && players.length >= 2 && (
                     <AddRow>
-                      <Select value={c1} onChange={(e) => setC1(e.target.value)} style={{ flex: 1 }}>
-                        <option value="">Giocatore 1</option>
-                        {players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </Select>
-                      <Select value={c2} onChange={(e) => setC2(e.target.value)} style={{ flex: 1 }}>
-                        <option value="">Giocatore 2</option>
-                        {players.filter((p) => p.id !== c1).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
-                      </Select>
+                      <Select value={c1} onChange={(e) => setC1(e.target.value)} style={{ flex: 1 }}><option value="">Giocatore 1</option>{players.map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select>
+                      <Select value={c2} onChange={(e) => setC2(e.target.value)} style={{ flex: 1 }}><option value="">Giocatore 2</option>{players.filter((p) => p.id !== c1).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}</Select>
                       <AddBtn onClick={createCouple} disabled={!c1 || !c2 || c1 === c2}>+ Coppia</AddBtn>
                     </AddRow>
                   )}
@@ -330,9 +348,7 @@ export default function ClassificaDalVivo() {
             <Modal onClick={(e) => e.stopPropagation()}>
               <ModalTitle>{pinModal === "set" ? "Imposta un PIN" : "Inserisci il PIN"}</ModalTitle>
               <ModalSub>{pinModal === "set" ? "Servirà per modificare la classifica. Almeno 4 cifre." : "Per registrare partite, giocatori o coppie."}</ModalSub>
-              <PinInput type="password" inputMode="numeric" autoFocus value={pinInput} placeholder="••••"
-                onChange={(e) => { setPinInput(e.target.value); setPinErr(""); }}
-                onKeyDown={(e) => e.key === "Enter" && submitPin()} />
+              <PinInput type="password" inputMode="numeric" autoFocus value={pinInput} placeholder="••••" onChange={(e) => { setPinInput(e.target.value); setPinErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitPin()} />
               {pinErr && <PinErr>{pinErr}</PinErr>}
               <ModalActions>
                 <ModalCancel onClick={() => setPinModal(null)}>Annulla</ModalCancel>
@@ -349,11 +365,7 @@ export default function ClassificaDalVivo() {
 // ===== STILI =====
 const GlobalStyle = createGlobalStyle`
   body { margin: 0; background: #0a120a; }
-  .rdp-root {
-    --rdp-accent-color: #d4a017; --rdp-accent-background-color: rgba(212,160,23,0.18);
-    --rdp-today-color: #35a566; --rdp-day-width: 40px; --rdp-day-height: 40px;
-    --rdp-day_button-width: 40px; --rdp-day_button-height: 40px; margin: 0 auto; color: #f5f0e8;
-  }
+  .rdp-root { --rdp-accent-color: #d4a017; --rdp-accent-background-color: rgba(212,160,23,0.18); --rdp-today-color: #35a566; --rdp-day-width: 40px; --rdp-day-height: 40px; --rdp-day_button-width: 40px; --rdp-day_button-height: 40px; margin: 0 auto; color: #f5f0e8; }
   .rdp-month_caption { font-family: var(--font-display), serif; font-size: 17px; color: #f0cf7a; text-transform: capitalize; }
   .rdp-weekday { color: #77837b; font-size: 11px; text-transform: uppercase; }
   .rdp-day_button { color: #f5f0e8; font-size: 15px; border-radius: 9px; }
@@ -369,28 +381,49 @@ const Page = styled.div` min-height: 100dvh; background: radial-gradient(ellipse
 const TopBar = styled.div` display: flex; align-items: center; justify-content: space-between; padding: 14px 16px; background: rgba(6,10,6,0.85); backdrop-filter: blur(10px); border-bottom: 1px solid rgba(212,160,23,0.14); position: sticky; top: 0; z-index: 10; `;
 const BackBtn = styled.button` background: rgba(19,33,19,0.9); border: 1px solid rgba(212,160,23,0.25); color: #d4a017; font-size: 13px; font-weight: 700; padding: 7px 12px; border-radius: 9px; cursor: pointer; `;
 const LockBtn = styled.button` background: rgba(19,33,19,0.9); border: 1px solid rgba(212,160,23,0.25); font-size: 16px; padding: 6px 10px; border-radius: 9px; cursor: pointer; `;
-const Title = styled.h1` font-family: var(--font-display), 'Times New Roman', serif; font-size: clamp(15px, 4.5vw, 21px); letter-spacing: 1.5px; color: #f0cf7a; margin: 0; text-align: center; `;
-const Container = styled.div` max-width: 640px; margin: 0 auto; padding: 18px 16px; `;
-const Sub = styled.p` color: #a09880; font-size: 14px; margin: 0 0 12px; text-align: center; `;
+const Title = styled.h1` font-family: var(--font-display), 'Times New Roman', serif; font-size: clamp(16px, 5vw, 22px); letter-spacing: 2px; color: #f0cf7a; margin: 0; `;
+const Container = styled.div` max-width: 640px; margin: 0 auto; padding: 16px; `;
 const ErrorBox = styled.div` background: rgba(230,57,70,0.15); border: 1px solid #e63946; color: #ff8b96; border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 12px; cursor: pointer; text-align: center; `;
 const LockBar = styled.div` background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.3); color: #d4a017; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin-bottom: 12px; cursor: pointer; text-align: center; font-weight: 600; `;
 const Loading = styled.div` text-align: center; color: #a09880; padding: 40px 0; `;
-const Section = styled.section` margin-top: 18px; background: rgba(19,33,19,0.55); border: 1px solid rgba(212,160,23,0.12); border-radius: 16px; padding: 18px; `;
-const SectionTitle = styled.h2` font-family: var(--font-display), serif; font-size: 18px; letter-spacing: 0.5px; margin: 0 0 14px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; `;
-const Oggi = styled.span` font-size: 10px; font-weight: 800; letter-spacing: 1px; background: #d4a017; color: #0a120a; padding: 2px 8px; border-radius: 6px; `;
-const DayCount = styled.span` margin-left: auto; font-size: 13px; color: #a09880; font-weight: 600; `;
-const CalWrap = styled.div` display: flex; justify-content: center; `;
+
+const DayNav = styled.div` display: flex; align-items: center; gap: 8px; background: rgba(19,33,19,0.6); border: 1px solid rgba(212,160,23,0.14); border-radius: 14px; padding: 8px; `;
+const NavArrow = styled.button` width: 44px; height: 48px; flex-shrink: 0; border-radius: 10px; background: rgba(10,16,10,0.6); border: 1px solid rgba(212,160,23,0.18); color: #d4a017; font-size: 24px; cursor: pointer; line-height: 1; `;
+const DayCenter = styled.button` flex: 1; background: none; border: none; cursor: pointer; color: #f5f0e8; text-align: center; padding: 4px; `;
+const DayBig = styled.div` font-family: var(--font-display), serif; font-size: 19px; font-weight: 700; letter-spacing: 0.5px; display: flex; align-items: center; justify-content: center; gap: 8px; `;
+const DaySmall = styled.div` font-size: 12px; color: #a09880; margin-top: 2px; text-transform: capitalize; `;
+const Oggi = styled.span` font-size: 10px; font-weight: 800; letter-spacing: 1px; background: #d4a017; color: #0a120a; padding: 2px 7px; border-radius: 6px; `;
+const CalCard = styled.div` margin-top: 10px; background: rgba(19,33,19,0.6); border: 1px solid rgba(212,160,23,0.14); border-radius: 14px; padding: 10px; display: flex; justify-content: center; `;
+
+const Section = styled.section` margin-top: 14px; background: rgba(19,33,19,0.55); border: 1px solid rgba(212,160,23,0.12); border-radius: 16px; padding: 16px; `;
+const SectionTitle = styled.h2` font-family: var(--font-display), serif; font-size: 17px; letter-spacing: 0.5px; margin: 0 0 12px; `;
 const Empty = styled.p` color: #77837b; font-size: 14px; margin: 4px 0 0; b { color: #d4a017; } `;
-const MiniEmpty = styled.p` color: #5c6659; font-size: 13px; margin: 8px 0 0; text-align: center; `;
-const RecordBox = styled.div` display: flex; flex-direction: column; gap: 8px; `;
-const RecLabel = styled.label` font-size: 12px; color: #a09880; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; `;
-const RecordBtn = styled.button` margin-top: 4px; background: #d4a017; color: #0a120a; border: none; padding: 12px; border-radius: 10px; font-weight: 800; font-size: 15px; cursor: pointer; &:disabled { opacity: 0.4; cursor: not-allowed; } `;
-const WinsHint = styled.p` color: #5c6659; font-size: 12px; margin: 4px 0 0; text-align: center; `;
-const MatchList = styled.div` display: flex; flex-direction: column; gap: 7px; margin-top: 14px; `;
+const MiniEmpty = styled.p` color: #5c6659; font-size: 13px; margin: 8px 0; text-align: center; `;
+const StepHint = styled.p` font-size: 13px; color: #d4a017; font-weight: 600; margin: 0 0 10px; text-align: center; `;
+
+const ChipGrid = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 8px; @media (max-width: 380px) { grid-template-columns: 1fr; } `;
+const CoupleChip = styled.button<{ $on?: boolean; $color: string }>`
+  display: flex; align-items: center; gap: 8px; text-align: left; padding: 13px 12px; border-radius: 12px; cursor: pointer;
+  font-size: 14px; font-weight: 600; color: #f5f0e8; transition: all 120ms;
+  background: ${(p) => (p.$on ? `${p.$color}22` : "rgba(10,16,10,0.6)")};
+  border: 2px solid ${(p) => (p.$on ? p.$color : "rgba(212,160,23,0.12)")};
+`;
+const WinnerPick = styled.div` display: flex; flex-direction: column; gap: 10px; `;
+const WinBtns = styled.div` display: flex; flex-direction: column; gap: 8px; align-items: stretch; `;
+const WinBtn = styled.button<{ $color: string }>`
+  display: flex; align-items: center; justify-content: center; gap: 8px; padding: 16px; border-radius: 12px; cursor: pointer;
+  font-size: 16px; font-weight: 800; color: #f5f0e8; background: ${(p) => `${p.$color}20`}; border: 2px solid ${(p) => p.$color};
+  &:active { transform: scale(0.98); }
+`;
+const Vs = styled.div` text-align: center; font-size: 12px; color: #77837b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; `;
+const ClearBtn = styled.button` background: none; border: none; color: #a09880; font-size: 13px; font-weight: 600; cursor: pointer; padding: 4px; `;
+
+const MatchList = styled.div` display: flex; flex-direction: column; gap: 7px; margin-top: 14px; padding-top: 14px; border-top: 1px solid rgba(212,160,23,0.1); `;
 const MatchRow = styled.div` display: flex; align-items: center; gap: 10px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 9px 12px; `;
 const MatchText = styled.span` flex: 1; font-size: 14px; color: #d5cdb8; b { color: #f5f0e8; } `;
-const ModeToggle = styled.div` display: flex; gap: 6px; margin-top: 22px; background: rgba(10,16,10,0.5); padding: 4px; border-radius: 11px; `;
-const ModeBtn = styled.button<{ $on?: boolean }>` flex: 1; padding: 9px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; background: ${(p) => (p.$on ? "#d4a017" : "transparent")}; color: ${(p) => (p.$on ? "#0a120a" : "#a09880")}; `;
+
+const ModeToggle = styled.div` display: flex; gap: 6px; margin-top: 16px; background: rgba(10,16,10,0.5); padding: 4px; border-radius: 11px; `;
+const ModeBtn = styled.button<{ $on?: boolean }>` flex: 1; padding: 10px; border-radius: 8px; border: none; cursor: pointer; font-size: 14px; font-weight: 700; background: ${(p) => (p.$on ? "#d4a017" : "transparent")}; color: ${(p) => (p.$on ? "#0a120a" : "#a09880")}; `;
 const BoardCols = styled.div` margin-top: 12px; display: grid; grid-template-columns: 1fr 1fr; gap: 12px; @media (max-width: 520px) { grid-template-columns: 1fr; } `;
 const Board = styled.div` background: rgba(19,33,19,0.55); border: 1px solid rgba(212,160,23,0.12); border-radius: 16px; padding: 16px; `;
 const BoardTitle = styled.h3` font-family: var(--font-display), serif; font-size: 15px; margin: 0; letter-spacing: 0.5px; `;
@@ -401,18 +434,25 @@ const BoardName = styled.span` flex: 1; font-size: 13.5px; font-weight: 600; ove
 const BoardWins = styled.span` font-size: 19px; font-weight: 800; color: #f0cf7a; font-variant-numeric: tabular-nums; `;
 const Games = styled.span` font-size: 12px; color: #77837b; font-weight: 600; `;
 const Legend = styled.p` text-align: center; font-size: 11px; color: #5c6659; margin: 8px 0 0; `;
-const ManageToggle = styled.button` width: 100%; margin-top: 18px; background: rgba(19,33,19,0.4); border: 1px solid rgba(212,160,23,0.12); color: #a09880; font-size: 14px; font-weight: 600; padding: 12px; border-radius: 12px; cursor: pointer; &:hover { color: #d4a017; } `;
+
+const H2hSelect = styled.select` width: 100%; padding: 11px 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: rgba(10,16,10,0.8); color: #f5f0e8; font-size: 15px; font-weight: 600; outline: none; margin-bottom: 12px; &:focus { border-color: #d4a017; } `;
+const H2hList = styled.div` display: flex; flex-direction: column; gap: 6px; `;
+const H2hRow = styled.div` display: flex; align-items: center; gap: 10px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 10px 12px; `;
+const H2hName = styled.span` flex: 1; font-size: 14px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; `;
+const H2hScore = styled.span` display: flex; align-items: center; gap: 6px; font-size: 18px; font-variant-numeric: tabular-nums; span { color: #5c6659; } `;
+
+const ManageToggle = styled.button` width: 100%; margin-top: 14px; background: rgba(19,33,19,0.4); border: 1px solid rgba(212,160,23,0.12); color: #a09880; font-size: 14px; font-weight: 600; padding: 13px; border-radius: 12px; cursor: pointer; &:hover { color: #d4a017; } `;
 const ChipList = styled.div` display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 12px; `;
 const Chip = styled.div` display: inline-flex; align-items: center; gap: 6px; background: rgba(10,16,10,0.7); border: 1.5px solid rgba(212,160,23,0.25); border-radius: 20px; padding: 6px 8px 6px 12px; font-size: 14px; font-weight: 600; `;
 const AddRow = styled.div` display: flex; gap: 8px; flex-wrap: wrap; align-items: center; `;
-const Input = styled.input` flex: 1; min-width: 120px; padding: 10px 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: rgba(10,16,10,0.8); color: #f5f0e8; font-size: 15px; outline: none; &:focus { border-color: #d4a017; } &::placeholder { color: #5c6659; } `;
+const Input = styled.input` flex: 1; min-width: 120px; padding: 11px 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: rgba(10,16,10,0.8); color: #f5f0e8; font-size: 15px; outline: none; &:focus { border-color: #d4a017; } &::placeholder { color: #5c6659; } `;
 const Select = styled.select` padding: 11px 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: rgba(10,16,10,0.8); color: #f5f0e8; font-size: 15px; outline: none; &:focus { border-color: #d4a017; } `;
-const AddBtn = styled.button` background: #d4a017; color: #0a120a; border: none; padding: 10px 16px; border-radius: 10px; font-weight: 800; font-size: 14px; cursor: pointer; white-space: nowrap; &:disabled { opacity: 0.4; cursor: not-allowed; } `;
+const AddBtn = styled.button` background: #d4a017; color: #0a120a; border: none; padding: 11px 16px; border-radius: 10px; font-weight: 800; font-size: 14px; cursor: pointer; white-space: nowrap; &:disabled { opacity: 0.4; cursor: not-allowed; } `;
 const CoupleMngList = styled.div` display: flex; flex-direction: column; gap: 7px; margin-bottom: 12px; `;
-const CoupleMngRow = styled.div<{ $off?: boolean }>` display: flex; align-items: center; gap: 10px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 9px 12px; font-size: 14px; font-weight: 600; opacity: ${(p) => (p.$off ? 0.5 : 1)}; `;
-const SmallBtn = styled.button` background: rgba(212,160,23,0.12); border: 1px solid rgba(212,160,23,0.3); color: #d4a017; font-size: 11px; font-weight: 700; padding: 4px 9px; border-radius: 7px; cursor: pointer; `;
+const CoupleMngRow = styled.div<{ $off?: boolean }>` display: flex; align-items: center; gap: 10px; background: rgba(10,16,10,0.5); border-radius: 10px; padding: 10px 12px; font-size: 14px; font-weight: 600; opacity: ${(p) => (p.$off ? 0.5 : 1)}; `;
+const SmallBtn = styled.button` background: rgba(212,160,23,0.12); border: 1px solid rgba(212,160,23,0.3); color: #d4a017; font-size: 11px; font-weight: 700; padding: 5px 10px; border-radius: 7px; cursor: pointer; `;
 const Dot = styled.span` width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; `;
-const Del = styled.button` background: none; border: none; color: #77837b; font-size: 18px; line-height: 1; cursor: pointer; padding: 0 2px; &:hover { color: #e63946; } `;
+const Del = styled.button` background: none; border: none; color: #77837b; font-size: 20px; line-height: 1; cursor: pointer; padding: 0 4px; &:hover { color: #e63946; } `;
 const ModalScrim = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; `;
 const Modal = styled.div` background: #16211a; border: 1px solid rgba(212,160,23,0.3); border-radius: 16px; padding: 24px; width: 100%; max-width: 320px; `;
 const ModalTitle = styled.h2` font-family: var(--font-display), serif; font-size: 20px; margin: 0 0 6px; color: #f0cf7a; `;
@@ -420,5 +460,5 @@ const ModalSub = styled.p` font-size: 13px; color: #a09880; margin: 0 0 16px; `;
 const PinInput = styled.input` width: 100%; text-align: center; letter-spacing: 8px; font-size: 24px; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.3); background: rgba(10,16,10,0.8); color: #f5f0e8; outline: none; &:focus { border-color: #d4a017; } `;
 const PinErr = styled.p` color: #ff8b96; font-size: 13px; margin: 8px 0 0; text-align: center; `;
 const ModalActions = styled.div` display: flex; gap: 10px; margin-top: 18px; `;
-const ModalCancel = styled.button` flex: 1; padding: 11px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: transparent; color: #a09880; font-weight: 700; font-size: 14px; cursor: pointer; `;
-const ModalOk = styled.button` flex: 2; padding: 11px; border-radius: 10px; border: none; background: #d4a017; color: #0a120a; font-weight: 800; font-size: 14px; cursor: pointer; &:disabled { opacity: 0.4; cursor: not-allowed; } `;
+const ModalCancel = styled.button` flex: 1; padding: 12px; border-radius: 10px; border: 1.5px solid rgba(212,160,23,0.2); background: transparent; color: #a09880; font-weight: 700; font-size: 14px; cursor: pointer; `;
+const ModalOk = styled.button` flex: 2; padding: 12px; border-radius: 10px; border: none; background: #d4a017; color: #0a120a; font-weight: 800; font-size: 14px; cursor: pointer; &:disabled { opacity: 0.4; cursor: not-allowed; } `;

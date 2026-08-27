@@ -32,3 +32,29 @@ export interface Match {
   loser_couple_id: string;
   created_at: string;
 }
+export type TournamentFormat = "triangular" | "knockout4" | "knockout8";
+export interface Tournament {
+  id: string;
+  name: string;
+  event_date: string | null;
+  format: TournamentFormat;
+  status: "ongoing" | "done";
+  winner_couple_id: string | null;
+  created_at: string;
+}
+export interface TournamentTeam {
+  id: string;
+  tournament_id: string;
+  couple_id: string;
+  seed: number;
+}
+export interface TournamentMatch {
+  id: string;
+  tournament_id: string;
+  round: number;
+  position: number;
+  team_a: string | null;
+  team_b: string | null;
+  winner: string | null;
+  label: string | null;
+}

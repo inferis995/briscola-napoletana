@@ -42,7 +42,7 @@ export default function ClassificaDalVivo() {
   const [pinSet, setPinSet] = useState<boolean | null>(null);
   const [unlocked, setUnlocked] = useState(false);
   const [pin, setPin] = useState("");
-  const [pinModal, setPinModal] = useState<null | "set" | "enter">(null);
+  const [pinModal, setPinModal] = useState<null | "set" | "enter" | "change">(null);
   const [pinInput, setPinInput] = useState("");
   const [pinErr, setPinErr] = useState("");
 
@@ -153,6 +153,14 @@ export default function ClassificaDalVivo() {
   const openUnlock = () => { setPinInput(""); setPinErr(""); setPinModal(pinSet ? "enter" : "set"); };
   const submitPin = async () => {
     const v = pinInput.trim();
+    if (pinModal === "change") {
+      if (v.length < 4) { setPinErr("Almeno 4 cifre."); return; }
+      const { data: ok } = await supabase.rpc("change_pin", { old_pin: pin, new_pin: v });
+      if (!ok) { setPinErr("Cambio non riuscito."); return; }
+      setPin(v); setPinModal(null); flash("✓ PIN aggiornato");
+      try { localStorage.setItem(LS_PIN, v); } catch {}
+      return;
+    }
     if (pinModal === "set") {
       if (v.length < 4) { setPinErr("Almeno 4 cifre."); return; }
       const { data: ok } = await supabase.rpc("set_pin", { candidate: v });
@@ -214,6 +222,10 @@ export default function ClassificaDalVivo() {
           {!unlocked && !loading && (
             <LockBar onClick={openUnlock}>🔒 Sola lettura — {pinSet === false ? "imposta un PIN" : "inserisci il PIN"} per registrare</LockBar>
           )}
+
+          <a href="/tornei" style={{ textDecoration: "none" }}>
+            <TorneiBtn>🏆 Tornei</TorneiBtn>
+          </a>
 
           {loading ? <Loading>Caricamento…</Loading> : (
             <>
@@ -381,6 +393,9 @@ export default function ClassificaDalVivo() {
               {showManage && (
                 <Section>
                   {!unlocked && <Empty style={{ marginBottom: 12 }}>🔒 Sblocca in alto a destra per modificare.</Empty>}
+                  {unlocked && (
+                    <SmallBtn style={{ marginBottom: 14 }} onClick={() => { setPinInput(""); setPinErr(""); setPinModal("change"); }}>🔑 Cambia PIN</SmallBtn>
+                  )}
                   <SectionTitle style={{ fontSize: 16 }}>Giocatori</SectionTitle>
                   <ChipList>
                     {players.map((p) => <Chip key={p.id}>{p.name}{unlocked && <Del onClick={() => guard("delete_player", { p_id: p.id })}>×</Del>}</Chip>)}
@@ -420,13 +435,13 @@ export default function ClassificaDalVivo() {
         {pinModal && (
           <ModalScrim onClick={() => setPinModal(null)}>
             <Modal onClick={(e) => e.stopPropagation()}>
-              <ModalTitle>{pinModal === "set" ? "Imposta un PIN" : "Inserisci il PIN"}</ModalTitle>
-              <ModalSub>{pinModal === "set" ? "Servirà per modificare la classifica. Almeno 4 cifre." : "Per registrare partite, giocatori o coppie."}</ModalSub>
+              <ModalTitle>{pinModal === "set" ? "Imposta un PIN" : pinModal === "change" ? "Nuovo PIN" : "Inserisci il PIN"}</ModalTitle>
+              <ModalSub>{pinModal === "set" ? "Servirà per modificare la classifica. Almeno 4 cifre." : pinModal === "change" ? "Scegli il nuovo PIN (almeno 4 cifre)." : "Per registrare partite, giocatori o coppie."}</ModalSub>
               <PinInput type="password" inputMode="numeric" autoFocus value={pinInput} placeholder="••••" onChange={(e) => { setPinInput(e.target.value); setPinErr(""); }} onKeyDown={(e) => e.key === "Enter" && submitPin()} />
               {pinErr && <PinErr>{pinErr}</PinErr>}
               <ModalActions>
                 <ModalCancel onClick={() => setPinModal(null)}>Annulla</ModalCancel>
-                <ModalOk onClick={submitPin} disabled={!pinInput.trim()}>{pinModal === "set" ? "Imposta" : "Sblocca"}</ModalOk>
+                <ModalOk onClick={submitPin} disabled={!pinInput.trim()}>{pinModal === "set" ? "Imposta" : pinModal === "change" ? "Salva" : "Sblocca"}</ModalOk>
               </ModalActions>
             </Modal>
           </ModalScrim>
@@ -468,6 +483,7 @@ const Title = styled.h1` font-family: var(--font-display), 'Times New Roman', se
 const Container = styled.div` max-width: 640px; margin: 0 auto; padding: 16px; `;
 const ErrorBox = styled.div` background: rgba(230,57,70,0.15); border: 1px solid #e63946; color: #ff8b96; border-radius: 10px; padding: 10px 14px; font-size: 14px; margin-bottom: 12px; cursor: pointer; text-align: center; `;
 const LockBar = styled.div` background: rgba(212,160,23,0.1); border: 1px solid rgba(212,160,23,0.3); color: #d4a017; border-radius: 10px; padding: 10px 14px; font-size: 13.5px; margin-bottom: 12px; cursor: pointer; text-align: center; font-weight: 600; `;
+const TorneiBtn = styled.button` width: 100%; background: rgba(212,160,23,0.12); border: 1.5px solid rgba(212,160,23,0.4); color: #f0cf7a; font-size: 15px; font-weight: 800; letter-spacing: 0.5px; padding: 13px; border-radius: 12px; cursor: pointer; &:hover { background: rgba(212,160,23,0.2); } `;
 const Loading = styled.div` text-align: center; color: #a09880; padding: 40px 0; `;
 
 const DayNav = styled.div` display: flex; align-items: center; gap: 8px; background: rgba(19,33,19,0.6); border: 1px solid rgba(212,160,23,0.14); border-radius: 14px; padding: 8px; `;

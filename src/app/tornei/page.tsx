@@ -71,6 +71,14 @@ export default function TorneiPage() {
   }, [load]);
 
   const flash = (m: string) => { setToast(m); window.setTimeout(() => setToast(""), 1600); };
+
+  const shareText = async (text: string) => {
+    try {
+      if (typeof navigator !== "undefined" && (navigator as any).share) { await (navigator as any).share({ text }); return; }
+    } catch { /* utente ha annullato o non supportato: provo la copia */ }
+    try { await navigator.clipboard.writeText(text); flash("📋 Copiato — incolla su WhatsApp"); }
+    catch { setErr("Copia non riuscita. Seleziona e copia manualmente."); }
+  };
   const playerName = useCallback((id: string) => players.find((p) => p.id === id)?.name || "?", [players]);
   const coupleLabel = useCallback((id: string) => { const c = couples.find((x) => x.id === id); return c ? `${playerName(c.player1_id)} & ${playerName(c.player2_id)}` : "?"; }, [couples, playerName]);
   const colorOf = (id: string) => COLORS[Math.max(0, couples.findIndex((c) => c.id === id)) % COLORS.length];
@@ -218,6 +226,7 @@ export default function TorneiPage() {
                   matches={tmatches.filter((x) => x.tournament_id === detail.id)}
                   coupleLabel={coupleLabel} colorOf={colorOf}
                   unlocked={unlocked} onWinner={setWinner} onFinish={finishManual} onDelete={deleteTournament}
+                  onShare={shareText}
                 />
               )}
             </>
@@ -242,10 +251,11 @@ export default function TorneiPage() {
 }
 
 // ===== DETTAGLIO TORNEO =====
-function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, onWinner, onFinish, onDelete }: {
+function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, onWinner, onFinish, onDelete, onShare }: {
   t: Tournament; teams: TournamentTeam[]; matches: TournamentMatch[];
   coupleLabel: (id: string) => string; colorOf: (id: string) => string;
   unlocked: boolean; onWinner: (m: string, w: string) => void; onFinish: (tid: string, w: string) => void; onDelete: (tid: string) => void;
+  onShare: (text: string) => void;
 }) {
   const isKnockout = t.format !== "triangular";
   const [manual, setManual] = useState("");
@@ -278,6 +288,10 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
         <ChampBanner><span>🏆 CAMPIONE</span><b>{coupleLabel(t.winner_couple_id)}</b></ChampBanner>
       )}
 
+      <ShareBtn onClick={() => onShare(buildExport(t, teams, matches, coupleLabel))}>
+        📤 Esporta per WhatsApp
+      </ShareBtn>
+
       {isKnockout ? (
         <div>
           {rounds.map(([r, ms]) => (
@@ -308,7 +322,7 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
               return (
                 <div key={r} style={{ marginBottom: 14 }}>
                   <GiornataHead>
-                    <span>Giornata {r}</span>
+                    <span>Turno {r}</span>
                     {resting.length > 0 && <Rest>riposa: {resting.map(coupleLabel).join(", ")}</Rest>}
                   </GiornataHead>
                   {ms.map((m, idx) => (
@@ -373,6 +387,53 @@ function MatchCard({ m, coupleLabel, colorOf, unlocked, onWinner }: {
 const fromISO = (s: string) => { const [y, m, d] = s.split("-"); return `${d} ${MESI[parseInt(m, 10) - 1]} ${y}`; };
 const fmtLabel = (f: string) => f === "triangular" ? "Girone" : f === "knockout4" ? "Eliminazione (4)" : f === "knockout8" ? "Eliminazione (8)" : f;
 
+// Testo condivisibile su WhatsApp, aggiornato ai risultati fino a ora
+function buildExport(t: Tournament, teams: TournamentTeam[], matches: TournamentMatch[], coupleLabel: (id: string) => string): string {
+  const isRR = t.format === "triangular";
+  const L: string[] = [];
+  L.push(`🏆 *${t.name}*`);
+  if (t.event_date) L.push(fromISO(t.event_date));
+  L.push(isRR ? "Girone all'italiana" : fmtLabel(t.format));
+  L.push("");
+
+  const byRound = new Map<number, TournamentMatch[]>();
+  matches.forEach((m) => { const a = byRound.get(m.round) || []; a.push(m); byRound.set(m.round, a); });
+  const rounds = Array.from(byRound.entries()).sort((a, b) => a[0] - b[0]);
+
+  for (const [r, ms] of rounds) {
+    ms.sort((x, y) => x.position - y.position);
+    L.push(isRR ? `📅 *Turno ${r}*` : `*${ms[0]?.label || "Turno " + r}*`);
+    ms.forEach((m, idx) => {
+      const tav = isRR && ms.length > 1 ? `Tavolo ${idx + 1}: ` : "";
+      if (!m.team_a || !m.team_b) { L.push(`${tav}(in attesa)`); return; }
+      const a = coupleLabel(m.team_a), b = coupleLabel(m.team_b);
+      if (m.winner) L.push(`${tav}${a} - ${b} → ✅ ${coupleLabel(m.winner)}`);
+      else L.push(`${tav}${a} - ${b} → da giocare`);
+    });
+    if (isRR) {
+      const playing = new Set<string>();
+      ms.forEach((m) => { if (m.team_a) playing.add(m.team_a); if (m.team_b) playing.add(m.team_b); });
+      const rest = teams.filter((tm) => !playing.has(tm.couple_id));
+      if (rest.length) L.push(`   riposa: ${rest.map((x) => coupleLabel(x.couple_id)).join(", ")}`);
+    }
+    L.push("");
+  }
+
+  if (isRR) {
+    const st = teams.map((tm) => ({
+      id: tm.couple_id,
+      w: matches.filter((m) => m.winner === tm.couple_id).length,
+      g: matches.filter((m) => m.team_a === tm.couple_id || m.team_b === tm.couple_id).length,
+    })).sort((a, b) => b.w - a.w || b.g - a.g);
+    L.push("📊 *Classifica*");
+    st.forEach((s, i) => L.push(`${i + 1}. ${coupleLabel(s.id)} — ${s.w} vinte / ${s.g} giocate`));
+    L.push("");
+  }
+
+  if (t.status === "done" && t.winner_couple_id) L.push(`🏆 *CAMPIONE: ${coupleLabel(t.winner_couple_id)}*`);
+  return L.join("\n").trim();
+}
+
 // ===== STILI =====
 const GlobalStyle = createGlobalStyle` body { margin: 0; background: #0a120a; } `;
 const Page = styled.div` min-height: 100dvh; background: radial-gradient(ellipse at 50% 0%, #12240f 0%, #0a120a 60%); color: #f5f0e8; font-family: 'Hanken Grotesk', 'Inter', -apple-system, sans-serif; padding-bottom: 60px; `;
@@ -385,6 +446,7 @@ const ErrorBox = styled.div` background: rgba(230,57,70,0.15); border: 1px solid
 const Loading = styled.div` text-align: center; color: #a09880; padding: 40px 0; `;
 const CreateBtn = styled.button` width: 100%; background: #d4a017; color: #0a120a; border: none; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; &:disabled { opacity: 0.4; cursor: not-allowed; } `;
 const DangerBtn = styled.button` width: 100%; margin-top: 16px; background: transparent; color: #e63946; border: 1px solid rgba(230,57,70,0.4); padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; `;
+const ShareBtn = styled.button` width: 100%; margin: 12px 0 4px; background: rgba(37,211,102,0.12); color: #4ee38a; border: 1.5px solid rgba(37,211,102,0.45); padding: 13px; border-radius: 12px; font-weight: 800; font-size: 14.5px; cursor: pointer; &:active { background: rgba(37,211,102,0.2); } `;
 const List = styled.div` display: flex; flex-direction: column; gap: 10px; margin-top: 16px; `;
 const TCard = styled.div` display: flex; align-items: center; gap: 12px; background: rgba(19,33,19,0.6); border: 1px solid rgba(212,160,23,0.14); border-radius: 14px; padding: 14px 16px; cursor: pointer; `;
 const TName = styled.div` font-family: var(--font-display), serif; font-size: 17px; font-weight: 700; `;

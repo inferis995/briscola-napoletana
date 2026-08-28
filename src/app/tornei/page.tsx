@@ -300,8 +300,26 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
             ))}
           </Section>
           <Section>
-            <SectionTitle style={{ fontSize: 16 }}>Partite</SectionTitle>
-            {matches.map((m) => <MatchCard key={m.id} m={m} coupleLabel={coupleLabel} colorOf={colorOf} unlocked={unlocked} onWinner={onWinner} />)}
+            <SectionTitle style={{ fontSize: 16 }}>Calendario</SectionTitle>
+            {rounds.map(([r, ms]) => {
+              const playing = new Set<string>();
+              ms.forEach((m) => { if (m.team_a) playing.add(m.team_a); if (m.team_b) playing.add(m.team_b); });
+              const resting = teams.filter((tm) => !playing.has(tm.couple_id)).map((tm) => tm.couple_id);
+              return (
+                <div key={r} style={{ marginBottom: 14 }}>
+                  <GiornataHead>
+                    <span>Giornata {r}</span>
+                    {resting.length > 0 && <Rest>riposa: {resting.map(coupleLabel).join(", ")}</Rest>}
+                  </GiornataHead>
+                  {ms.map((m, idx) => (
+                    <div key={m.id}>
+                      {ms.length > 1 && <TableTag>Tavolo {idx + 1}</TableTag>}
+                      <MatchCard m={m} coupleLabel={coupleLabel} colorOf={colorOf} unlocked={unlocked} onWinner={onWinner} />
+                    </div>
+                  ))}
+                </div>
+              );
+            })}
           </Section>
         </>
       )}
@@ -400,6 +418,9 @@ const WinMark = styled.span` margin-left: auto; `;
 const MMid = styled.div` text-align: center; font-size: 11px; color: #77837b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; `;
 const MHint = styled.div` text-align: center; font-size: 11px; color: #5c6659; `;
 const PendingCard = styled.div` background: rgba(10,16,10,0.4); border: 1px dashed rgba(212,160,23,0.15); border-radius: 12px; padding: 16px; text-align: center; color: #5c6659; font-size: 13px; margin-bottom: 8px; `;
+const GiornataHead = styled.div` display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 6px 0 8px; span { font-family: var(--font-display), serif; font-size: 15px; color: #f0cf7a; font-weight: 700; } `;
+const Rest = styled.span` font-size: 11px; color: #77837b; font-weight: 600; `;
+const TableTag = styled.div` font-size: 10px; font-weight: 800; color: #d4a017; text-transform: uppercase; letter-spacing: 1px; margin: 0 0 4px 2px; `;
 const Dot = styled.span` width: 11px; height: 11px; border-radius: 50%; flex-shrink: 0; `;
 const Toast = styled.div` position: fixed; left: 50%; bottom: 28px; transform: translateX(-50%); background: #14522f; color: #f5f0e8; border: 1px solid #35a566; padding: 12px 22px; border-radius: 12px; font-size: 15px; font-weight: 700; z-index: 200; box-shadow: 0 8px 30px rgba(0,0,0,0.6); `;
 const ModalScrim = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.7); display: flex; align-items: center; justify-content: center; z-index: 100; padding: 20px; `;

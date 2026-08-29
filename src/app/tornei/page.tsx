@@ -34,7 +34,9 @@ export default function TorneiPage() {
   // create form
   const [cName, setCName] = useState("");
   const [cDate, setCDate] = useState(toKey(new Date()));
+  const [cMode, setCMode] = useState<"couples" | "draft">("couples");
   const [cTeams, setCTeams] = useState<string[]>([]);
+  const [cPlayers, setCPlayers] = useState<string[]>([]);
   const [cFormat, setCFormat] = useState<TournamentFormat>("triangular");
 
   const load = useCallback(async () => {
@@ -110,20 +112,31 @@ export default function TorneiPage() {
 
   // ===== CREA TORNEO =====
   const toggleTeam = (id: string) => setCTeams((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const togglePlayer = (id: string) => setCPlayers((prev) => prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id]);
+  const draft = cMode === "draft";
+  const nTeams = draft ? Math.floor(cPlayers.length / 2) : cTeams.length;
+  const playersOk = !draft || (cPlayers.length >= 4 && cPlayers.length % 2 === 0);
   const formatOptions = useMemo(() => {
-    const n = cTeams.length;
+    const n = nTeams;
     const opts: { v: TournamentFormat; label: string }[] = [];
     if (n >= 2) opts.push({ v: "triangular", label: n === 2 ? "Sfida (andata/ritorno)" : n === 3 ? "Triangolare" : "Girone all'italiana" });
     if (n === 4) opts.push({ v: "knockout4", label: "Eliminazione (semifinali)" });
     if (n === 8) opts.push({ v: "knockout8", label: "Eliminazione (quarti)" });
     return opts;
-  }, [cTeams.length]);
+  }, [nTeams]);
   useEffect(() => { if (!formatOptions.some((o) => o.v === cFormat)) setCFormat(formatOptions[0]?.v || "triangular"); }, [formatOptions]); // eslint-disable-line
 
   const createTournament = async () => {
-    if (!cName.trim() || cTeams.length < 2) return;
-    const { data, error } = await rpc("create_tournament", { t_name: cName.trim(), t_date: cDate, t_format: cFormat, team_ids: cTeams });
-    if (!error && data) { flash("🏆 Torneo creato"); setCName(""); setCTeams([]); setView({ t: "detail", id: data as string }); }
+    if (!cName.trim()) return;
+    if (draft) {
+      if (!playersOk) return;
+      const { data, error } = await rpc("create_tournament_from_players", { t_name: cName.trim(), t_date: cDate, t_format: cFormat, player_ids: cPlayers });
+      if (!error && data) { flash("🎲 Torneo creato — coppie sorteggiate"); setCName(""); setCPlayers([]); setCTeams([]); setView({ t: "detail", id: data as string }); }
+    } else {
+      if (cTeams.length < 2) return;
+      const { data, error } = await rpc("create_tournament", { t_name: cName.trim(), t_date: cDate, t_format: cFormat, team_ids: cTeams });
+      if (!error && data) { flash("🏆 Torneo creato"); setCName(""); setCTeams([]); setCPlayers([]); setView({ t: "detail", id: data as string }); }
+    }
   };
 
   const setWinner = async (matchId: string, w: string) => {
@@ -190,21 +203,54 @@ export default function TorneiPage() {
                   <SectionTitle>Nuovo torneo</SectionTitle>
                   <Field><Label>Nome</Label><Input value={cName} maxLength={30} placeholder="Es. Torneo di Capodanno" onChange={(e) => setCName(e.target.value)} /></Field>
                   <Field><Label>Giorno</Label><Input type="date" value={cDate} onChange={(e) => setCDate(e.target.value)} /></Field>
-                  <Label>Squadre (tocca in ordine di testa di serie)</Label>
-                  <ChipGrid>
-                    {activeCouples.map((c) => {
-                      const idx = cTeams.indexOf(c.id);
-                      return (
-                        <TeamChip key={c.id} $on={idx >= 0} $color={colorOf(c.id)} onClick={() => toggleTeam(c.id)}>
-                          {idx >= 0 && <Seed>{idx + 1}</Seed>}
-                          <Dot style={{ background: colorOf(c.id) }} />{coupleLabel(c.id)}
-                        </TeamChip>
-                      );
-                    })}
-                  </ChipGrid>
-                  {cTeams.length >= 2 && (
+
+                  <Label>Come formi le squadre</Label>
+                  <ModeTabs>
+                    <ModeTab $on={!draft} onClick={() => setCMode("couples")}>👥 Coppie fisse</ModeTab>
+                    <ModeTab $on={draft} onClick={() => setCMode("draft")}>🎲 Sorteggio giocatori</ModeTab>
+                  </ModeTabs>
+
+                  {!draft ? (
                     <>
-                      <Label style={{ marginTop: 16 }}>Formato ({cTeams.length} squadre)</Label>
+                      <Label style={{ marginTop: 14 }}>Squadre (tocca in ordine di testa di serie)</Label>
+                      <ChipGrid>
+                        {activeCouples.map((c) => {
+                          const idx = cTeams.indexOf(c.id);
+                          return (
+                            <TeamChip key={c.id} $on={idx >= 0} $color={colorOf(c.id)} onClick={() => toggleTeam(c.id)}>
+                              {idx >= 0 && <Seed>{idx + 1}</Seed>}
+                              <Dot style={{ background: colorOf(c.id) }} />{coupleLabel(c.id)}
+                            </TeamChip>
+                          );
+                        })}
+                      </ChipGrid>
+                    </>
+                  ) : (
+                    <>
+                      <Label style={{ marginTop: 14 }}>Giocatori (le coppie e i tavoli li sorteggia il sistema)</Label>
+                      <ChipGrid>
+                        {players.map((p) => {
+                          const on = cPlayers.includes(p.id);
+                          return (
+                            <TeamChip key={p.id} $on={on} $color="#d4a017" onClick={() => togglePlayer(p.id)}>
+                              {on && <Seed>✓</Seed>}
+                              <Dot style={{ background: "#d4a017" }} />{p.name}
+                            </TeamChip>
+                          );
+                        })}
+                      </ChipGrid>
+                      <DraftInfo>
+                        {cPlayers.length === 0 ? "Seleziona un numero pari di giocatori (minimo 4)."
+                          : cPlayers.length % 2 !== 0 ? `⚠️ ${cPlayers.length} giocatori: serve un numero pari.`
+                          : cPlayers.length < 4 ? "Servono almeno 4 giocatori (2 coppie)."
+                          : `${cPlayers.length} giocatori → ${nTeams} coppie sorteggiate`}
+                      </DraftInfo>
+                    </>
+                  )}
+
+                  {nTeams >= 2 && playersOk && (
+                    <>
+                      <Label style={{ marginTop: 16 }}>Formato ({nTeams} squadre)</Label>
                       <FormatList>
                         {formatOptions.map((o) => (
                           <FormatOpt key={o.v} $on={cFormat === o.v} onClick={() => setCFormat(o.v)}>{o.label}</FormatOpt>
@@ -212,8 +258,8 @@ export default function TorneiPage() {
                       </FormatList>
                     </>
                   )}
-                  <CreateBtn style={{ marginTop: 18 }} onClick={createTournament} disabled={!cName.trim() || cTeams.length < 2}>
-                    Crea torneo con {cTeams.length} squadre
+                  <CreateBtn style={{ marginTop: 18 }} onClick={createTournament} disabled={!cName.trim() || nTeams < 2 || !playersOk}>
+                    {draft ? `🎲 Sorteggia e crea (${nTeams} coppie)` : `Crea torneo con ${cTeams.length} squadre`}
                   </CreateBtn>
                 </Section>
               )}
@@ -463,6 +509,9 @@ const Select = styled.select` width: 100%; padding: 11px 12px; border-radius: 10
 const ChipGrid = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 8px; @media (max-width: 400px) { grid-template-columns: 1fr; } `;
 const TeamChip = styled.button<{ $on?: boolean; $color: string }>` position: relative; display: flex; align-items: center; gap: 8px; text-align: left; padding: 12px; border-radius: 12px; cursor: pointer; font-size: 13.5px; font-weight: 600; color: #f5f0e8; background: ${(p) => (p.$on ? `${p.$color}22` : "rgba(10,16,10,0.6)")}; border: 2px solid ${(p) => (p.$on ? p.$color : "rgba(212,160,23,0.12)")}; `;
 const Seed = styled.span` position: absolute; top: -8px; left: -8px; width: 22px; height: 22px; border-radius: 50%; background: #d4a017; color: #0a120a; font-size: 12px; font-weight: 800; display: flex; align-items: center; justify-content: center; `;
+const ModeTabs = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 8px; `;
+const ModeTab = styled.button<{ $on?: boolean }>` padding: 12px; border-radius: 11px; cursor: pointer; font-size: 13.5px; font-weight: 800; background: ${(p) => (p.$on ? "rgba(212,160,23,0.18)" : "rgba(10,16,10,0.6)")}; border: 2px solid ${(p) => (p.$on ? "#d4a017" : "rgba(212,160,23,0.12)")}; color: ${(p) => (p.$on ? "#f0cf7a" : "#a09880")}; `;
+const DraftInfo = styled.div` margin-top: 10px; font-size: 13px; font-weight: 700; color: #d4a017; text-align: center; `;
 const FormatList = styled.div` display: flex; flex-direction: column; gap: 8px; `;
 const FormatOpt = styled.button<{ $on?: boolean }>` padding: 13px; border-radius: 10px; cursor: pointer; font-size: 14px; font-weight: 700; text-align: left; background: ${(p) => (p.$on ? "rgba(212,160,23,0.16)" : "rgba(10,16,10,0.6)")}; border: 2px solid ${(p) => (p.$on ? "#d4a017" : "rgba(212,160,23,0.12)")}; color: ${(p) => (p.$on ? "#f0cf7a" : "#a09880")}; `;
 const DetailHead = styled.div` display: flex; align-items: flex-start; justify-content: space-between; gap: 12px; margin-bottom: 8px; `;

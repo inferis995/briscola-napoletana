@@ -12,8 +12,7 @@ const pad = (n: number) => String(n).padStart(2, "0");
 const toKey = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 const fromKey = (s: string) => new Date(s + "T00:00:00");
 const addDays = (d: Date, n: number) => { const x = new Date(d); x.setDate(x.getDate() + n); return x; };
-const mondayOf = (d: Date) => { const x = new Date(d.getFullYear(), d.getMonth(), d.getDate()); return addDays(x, -((x.getDay() + 6) % 7)); };
-const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
+const MESI =["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "luglio", "agosto", "settembre", "ottobre", "novembre", "dicembre"];
 const GIORNI = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const COLORS = ["#d4a017", "#2196f3", "#e63946", "#35a566", "#a06cd5", "#ff8c42", "#e0b0ff", "#4dd0c1"];
 const LS_PIN = "briscola_live_pin";
@@ -33,7 +32,7 @@ export default function ClassificaDalVivo() {
   const [selected, setSelected] = useState<Date>(new Date());
   const [showCal, setShowCal] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
-  const [period, setPeriod] = useState<Period>("week");
+  const [period, setPeriod] = useState<Period>("month");
   const [toast, setToast] = useState("");
   const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
@@ -101,9 +100,6 @@ export default function ClassificaDalVivo() {
   const dayMatches = matches.filter((m) => m.played_on === selKey);
   const playedDays = useMemo(() => Array.from(new Set(matches.map((m) => m.played_on))).map(fromKey), [matches]);
 
-  const weekStart = toKey(mondayOf(selected));
-  const weekEnd = toKey(addDays(mondayOf(selected), 6));
-  const inWeek = (d: string) => d >= weekStart && d <= weekEnd;
   const monthPrefix = `${selected.getFullYear()}-${pad(selected.getMonth() + 1)}`;
   const inMonth = (d: string) => d.startsWith(monthPrefix);
 
@@ -135,8 +131,8 @@ export default function ClassificaDalVivo() {
     }).filter((x) => x.g > 0);
 
   const boardFn = boardMode === "couples" ? coupleBoard : playerBoard;
-  const rangeFn = period === "week" ? inWeek : period === "month" ? inMonth : () => true;
-  const rawBoard = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, weekStart, weekEnd, monthPrefix]); // eslint-disable-line
+  const rangeFn = period === "month" ? inMonth : () => true;
+  const rawBoard = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, monthPrefix]); // eslint-disable-line
   // soglia per qualificarsi nella classifica per %: 50% delle partite di chi gioca
   // di più nel periodo. Minimo 5, massimo 25 (metà del tetto di 50 partite/mese):
   // si adatta a quanto si gioca, ma non supera mai 25.
@@ -343,18 +339,15 @@ export default function ClassificaDalVivo() {
                 <ModeBtn $on={boardMode === "players"} onClick={() => setBoardMode("players")}>Giocatori</ModeBtn>
               </ModeToggle>
               <ModeToggle style={{ marginTop: 8 }}>
-                <ModeBtn $on={period === "week"} onClick={() => setPeriod("week")}>Settimana</ModeBtn>
                 <ModeBtn $on={period === "month"} onClick={() => setPeriod("month")}>Mese</ModeBtn>
                 <ModeBtn $on={period === "all"} onClick={() => setPeriod("all")}>Sempre</ModeBtn>
               </ModeToggle>
               <Board style={{ marginTop: 12 }}>
                 <BoardTitle>
-                  {period === "week" ? "🏆 Settimana" : period === "month" ? "📅 Mese" : "⭐ Sempre"}
+                  {period === "month" ? "📅 Classifica del mese" : "⭐ Classifica generale"}
                 </BoardTitle>
                 <BoardHint>
-                  {period === "week"
-                    ? `${fromKey(weekStart).getDate()}–${fromKey(weekEnd).getDate()} ${MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}`
-                    : period === "month" ? MESI[selected.getMonth()] : "storico completo"}
+                  {period === "month" ? `${MESI[selected.getMonth()]} ${selected.getFullYear()}` : "storico completo"}
                 </BoardHint>
                 {boardRows.length > 0 && <ColHead>% · vinte/giocate</ColHead>}
                 {boardRows.map((r, i) => (

@@ -17,7 +17,7 @@ const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "lug
 const GIORNI = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const COLORS = ["#d4a017", "#2196f3", "#e63946", "#35a566", "#a06cd5", "#ff8c42", "#e0b0ff", "#4dd0c1"];
 const LS_PIN = "briscola_live_pin";
-const MONTH_MAX = 25;  // partite dal vivo massime al mese per giocatore (i tornei non contano)
+const MONTH_MAX = 50;  // partite dal vivo massime al mese per giocatore (i tornei non contano)
 const WARN_AT = Math.round(MONTH_MAX * 0.8);  // soglia gialla (avvicinamento al limite)
 
 type BoardMode = "couples" | "players";
@@ -35,7 +35,7 @@ export default function ClassificaDalVivo() {
   const [showCal, setShowCal] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
   const [period, setPeriod] = useState<Period>("week");
-  const [rankBy, setRankBy] = useState<RankBy>("wins");
+  const [rankBy, setRankBy] = useState<RankBy>("pct");
   const [toast, setToast] = useState("");
   const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
@@ -363,7 +363,7 @@ export default function ClassificaDalVivo() {
                 {boardRows.length > 0 && <ColHead>{rankBy === "wins" ? "vinte / giocate" : "% · vinte/giocate"}</ColHead>}
                 {boardRows.map((r, i) => (
                   <BoardRow key={r.id} $lead={i === 0}>
-                    <Rank>{i + 1}</Rank><Dot style={{ background: r.color }} />
+                    <Rank>{i === 0 ? "👑" : i + 1}</Rank><Dot style={{ background: r.color }} />
                     <BoardName>{r.label}</BoardName>
                     {rankBy === "wins"
                       ? <BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>

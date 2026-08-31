@@ -17,10 +17,12 @@ const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "lug
 const GIORNI = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const COLORS = ["#d4a017", "#2196f3", "#e63946", "#35a566", "#a06cd5", "#ff8c42", "#e0b0ff", "#4dd0c1"];
 const LS_PIN = "briscola_live_pin";
-const MONTH_MAX = 50;  // partite dal vivo massime al mese per giocatore (i tornei non contano)
+const MONTH_MAX = 25;  // partite dal vivo massime al mese per giocatore (i tornei non contano)
+const WARN_AT = Math.round(MONTH_MAX * 0.8);  // soglia gialla (avvicinamento al limite)
 
 type BoardMode = "couples" | "players";
 type Period = "week" | "month" | "all";
+type RankBy = "wins" | "pct";
 
 export default function ClassificaDalVivo() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -33,6 +35,7 @@ export default function ClassificaDalVivo() {
   const [showCal, setShowCal] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
   const [period, setPeriod] = useState<Period>("week");
+  const [rankBy, setRankBy] = useState<RankBy>("wins");
   const [toast, setToast] = useState("");
   const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
@@ -122,20 +125,31 @@ export default function ClassificaDalVivo() {
     couples.map((c) => {
       const w = matches.filter((m) => r(m.played_on) && m.winner_couple_id === c.id).length;
       const g = matches.filter((m) => r(m.played_on) && (m.winner_couple_id === c.id || m.loser_couple_id === c.id)).length;
-      return { id: c.id, label: coupleLabel(c), color: colorOf(c.id), w, g };
-    }).filter((x) => x.g > 0).sort((a, b) => b.w - a.w || b.g - a.g);
+      return { id: c.id, label: coupleLabel(c), color: colorOf(c.id), w, g, pct: g > 0 ? Math.round((100 * w) / g) : 0 };
+    }).filter((x) => x.g > 0);
 
   const playerBoard = (r: (d: string) => boolean) =>
     players.map((p) => {
       const ids = couples.filter((c) => c.player1_id === p.id || c.player2_id === p.id).map((c) => c.id);
       const w = matches.filter((m) => r(m.played_on) && ids.includes(m.winner_couple_id)).length;
       const g = matches.filter((m) => r(m.played_on) && (ids.includes(m.winner_couple_id) || ids.includes(m.loser_couple_id))).length;
-      return { id: p.id, label: p.name, color: "#d4a017", w, g };
-    }).filter((x) => x.g > 0).sort((a, b) => b.w - a.w || b.g - a.g);
+      return { id: p.id, label: p.name, color: "#d4a017", w, g, pct: g > 0 ? Math.round((100 * w) / g) : 0 };
+    }).filter((x) => x.g > 0);
 
   const boardFn = boardMode === "couples" ? coupleBoard : playerBoard;
   const rangeFn = period === "week" ? inWeek : period === "month" ? inMonth : () => true;
-  const boardRows = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, weekStart, weekEnd, monthPrefix]); // eslint-disable-line
+  const minGames = period === "week" ? 5 : 10;   // partite minime per qualificarsi nella classifica per %
+  const rawBoard = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, weekStart, weekEnd, monthPrefix]); // eslint-disable-line
+  // classifica ordinata secondo la metrica scelta
+  const boardRows = useMemo(() => rankBy === "wins"
+    ? [...rawBoard].sort((a, b) => b.w - a.w || b.g - a.g)
+    : rawBoard.filter((x) => x.g >= minGames).sort((a, b) => b.pct - a.pct || b.g - a.g),
+    [rawBoard, rankBy, minGames]);
+  // in modalità % : chi non ha abbastanza partite per essere classificato
+  const unranked = useMemo(() => rankBy === "pct"
+    ? [...rawBoard].filter((x) => x.g < minGames).sort((a, b) => b.g - a.g)
+    : [],
+    [rawBoard, rankBy, minGames]);
 
   // Scontri diretti (all-time) della coppia scelta
   const h2hId = h2h || activeCouples[0]?.id || couples[0]?.id || "";
@@ -333,6 +347,10 @@ export default function ClassificaDalVivo() {
                 <ModeBtn $on={period === "month"} onClick={() => setPeriod("month")}>Mese</ModeBtn>
                 <ModeBtn $on={period === "all"} onClick={() => setPeriod("all")}>Sempre</ModeBtn>
               </ModeToggle>
+              <ModeToggle style={{ marginTop: 8 }}>
+                <ModeBtn $on={rankBy === "wins"} onClick={() => setRankBy("wins")}>🏆 Vittorie</ModeBtn>
+                <ModeBtn $on={rankBy === "pct"} onClick={() => setRankBy("pct")}>📈 % vittorie</ModeBtn>
+              </ModeToggle>
               <Board style={{ marginTop: 12 }}>
                 <BoardTitle>
                   {period === "week" ? "🏆 Settimana" : period === "month" ? "📅 Mese" : "⭐ Sempre"}
@@ -342,16 +360,35 @@ export default function ClassificaDalVivo() {
                     ? `${fromKey(weekStart).getDate()}–${fromKey(weekEnd).getDate()} ${MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}`
                     : period === "month" ? MESI[selected.getMonth()] : "storico completo"}
                 </BoardHint>
-                {boardRows.length > 0 && <ColHead>vinte / giocate</ColHead>}
+                {boardRows.length > 0 && <ColHead>{rankBy === "wins" ? "vinte / giocate" : "% · vinte/giocate"}</ColHead>}
                 {boardRows.map((r, i) => (
                   <BoardRow key={r.id} $lead={i === 0}>
                     <Rank>{i + 1}</Rank><Dot style={{ background: r.color }} />
-                    <BoardName>{r.label}</BoardName><BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>
+                    <BoardName>{r.label}</BoardName>
+                    {rankBy === "wins"
+                      ? <BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>
+                      : <BoardWins>{r.pct}%<Games> · {r.w}/{r.g}</Games></BoardWins>}
                   </BoardRow>
                 ))}
-                {boardRows.length === 0 && <MiniEmpty>Nessuna partita in questo periodo</MiniEmpty>}
+                {boardRows.length === 0 && <MiniEmpty>{rankBy === "pct" ? `Nessun ${boardMode === "players" ? "giocatore" : "coppia"} con almeno ${minGames} partite` : "Nessuna partita in questo periodo"}</MiniEmpty>}
+                {unranked.length > 0 && (
+                  <>
+                    <ColHead style={{ marginTop: 14 }}>non qualificati · meno di {minGames} partite</ColHead>
+                    {unranked.map((r) => (
+                      <BoardRow key={r.id} style={{ opacity: 0.6 }}>
+                        <Rank>–</Rank><Dot style={{ background: r.color }} />
+                        <BoardName>{r.label}</BoardName><BoardWins>{r.pct}%<Games> · {r.w}/{r.g}</Games></BoardWins>
+                      </BoardRow>
+                    ))}
+                  </>
+                )}
               </Board>
-              <Legend>Vinte / giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}{boardMode === "players" && period === "month" ? ` · max ${MONTH_MAX} partite/mese` : ""}</Legend>
+              <Legend>
+                {rankBy === "wins"
+                  ? `Ordinata per vittorie · ${boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}`
+                  : `Ordinata per % vittorie · min ${minGames} partite per qualificarsi`}
+                {boardMode === "players" && period === "month" ? ` · max ${MONTH_MAX} partite/mese` : ""}
+              </Legend>
 
               {/* ===== CONTROLLO PARTITE MENSILI (limitatore) ===== */}
               <ManageToggle onClick={() => setShowUsage((s) => !s)}>{showUsage ? "▲ Nascondi" : "▼ Partite del mese per giocatore"}</ManageToggle>
@@ -359,12 +396,12 @@ export default function ClassificaDalVivo() {
                 <Section>
                   <SectionTitle style={{ fontSize: 16 }}>Partite del mese · {MESI[selected.getMonth()]}</SectionTitle>
                   <Empty style={{ marginBottom: 12, fontSize: 12 }}>
-                    Limite {MONTH_MAX} partite dal vivo al mese per giocatore. <b style={{ color: "#e0b000" }}>Giallo</b> oltre 40, <b style={{ color: "#e63946" }}>rosso</b> a {MONTH_MAX} (limite raggiunto). I tornei non contano.
+                    Limite {MONTH_MAX} partite dal vivo al mese per giocatore. <b style={{ color: "#e0b000" }}>Giallo</b> da {WARN_AT}, <b style={{ color: "#e63946" }}>rosso</b> a {MONTH_MAX} (limite raggiunto). I tornei non contano.
                   </Empty>
                   {monthUsage.length === 0 ? (
                     <MiniEmpty>Nessun giocatore.</MiniEmpty>
                   ) : monthUsage.map((u) => {
-                    const state = u.n >= MONTH_MAX ? "full" : u.n >= 40 ? "warn" : "ok";
+                    const state = u.n >= MONTH_MAX ? "full" : u.n >= WARN_AT ? "warn" : "ok";
                     const col = state === "full" ? "#e63946" : state === "warn" ? "#e0b000" : "#35a566";
                     return (
                       <UsageRow key={u.id}>

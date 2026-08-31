@@ -38,6 +38,7 @@ export default function ClassificaDalVivo() {
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
   const [h2hView, setH2hView] = useState<"one" | "all">("one");
   const [showManage, setShowManage] = useState(false);
+  const [showUsage, setShowUsage] = useState(false);
 
   // PIN
   const [pinSet, setPinSet] = useState<boolean | null>(null);
@@ -114,6 +115,8 @@ export default function ClassificaDalVivo() {
   const pairPlayerIds = pair.flatMap((cid) => { const c = couples.find((x) => x.id === cid); return c ? [c.player1_id, c.player2_id] : []; });
   const pairBlocked = pairPlayerIds.filter((pid) => monthCountOf(pid) >= MONTH_MAX);
   const canRecordPair = pairBlocked.length === 0;
+  // conteggio partite del mese selezionato, per giocatore (per il pannello di controllo)
+  const monthUsage = players.map((p) => ({ id: p.id, name: p.name, n: monthCountOf(p.id) })).sort((a, b) => b.n - a.n);
 
   const coupleBoard = (r: (d: string) => boolean) =>
     couples.map((c) => {
@@ -350,6 +353,30 @@ export default function ClassificaDalVivo() {
               </Board>
               <Legend>Vinte / giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}{boardMode === "players" && period === "month" ? ` · max ${MONTH_MAX} partite/mese` : ""}</Legend>
 
+              {/* ===== CONTROLLO PARTITE MENSILI (limitatore) ===== */}
+              <ManageToggle onClick={() => setShowUsage((s) => !s)}>{showUsage ? "▲ Nascondi" : "▼ Partite del mese per giocatore"}</ManageToggle>
+              {showUsage && (
+                <Section>
+                  <SectionTitle style={{ fontSize: 16 }}>Partite del mese · {MESI[selected.getMonth()]}</SectionTitle>
+                  <Empty style={{ marginBottom: 12, fontSize: 12 }}>
+                    Limite {MONTH_MAX} partite dal vivo al mese per giocatore. <b style={{ color: "#e0b000" }}>Giallo</b> oltre 40, <b style={{ color: "#e63946" }}>rosso</b> a {MONTH_MAX} (limite raggiunto). I tornei non contano.
+                  </Empty>
+                  {monthUsage.length === 0 ? (
+                    <MiniEmpty>Nessun giocatore.</MiniEmpty>
+                  ) : monthUsage.map((u) => {
+                    const state = u.n >= MONTH_MAX ? "full" : u.n >= 40 ? "warn" : "ok";
+                    const col = state === "full" ? "#e63946" : state === "warn" ? "#e0b000" : "#35a566";
+                    return (
+                      <UsageRow key={u.id}>
+                        <UsageName>{u.name}</UsageName>
+                        <UsageBar><UsageFill style={{ width: `${Math.min(100, (u.n / MONTH_MAX) * 100)}%`, background: col }} /></UsageBar>
+                        <UsageNum style={{ color: col }}>{u.n}<small>/{MONTH_MAX}</small>{state === "full" && " 🚫"}</UsageNum>
+                      </UsageRow>
+                    );
+                  })}
+                </Section>
+              )}
+
               {/* ===== SCONTRI DIRETTI ===== */}
               {couples.length >= 2 && (
                 <Section>
@@ -525,6 +552,11 @@ const Empty = styled.p` color: #77837b; font-size: 14px; margin: 4px 0 0; b { co
 const MiniEmpty = styled.p` color: #5c6659; font-size: 13px; margin: 8px 0; text-align: center; `;
 const StepHint = styled.p` font-size: 13px; color: #d4a017; font-weight: 600; margin: 0 0 10px; text-align: center; `;
 const LimitBox = styled.div` background: rgba(230,57,70,0.12); border: 1.5px solid rgba(230,57,70,0.45); border-radius: 12px; padding: 14px; text-align: center; font-size: 14px; font-weight: 700; color: #ff8b96; line-height: 1.5; b { color: #ffd0d5; display: inline-block; margin: 2px 0; } small { display: block; margin-top: 6px; font-size: 12px; font-weight: 500; color: #c98f95; } `;
+const UsageRow = styled.div` display: flex; align-items: center; gap: 10px; padding: 7px 0; `;
+const UsageName = styled.span` width: 90px; flex-shrink: 0; font-size: 13.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; `;
+const UsageBar = styled.div` flex: 1; height: 8px; border-radius: 5px; background: rgba(10,16,10,0.7); overflow: hidden; `;
+const UsageFill = styled.div` height: 100%; border-radius: 5px; transition: width 0.3s; `;
+const UsageNum = styled.span` width: 58px; flex-shrink: 0; text-align: right; font-size: 15px; font-weight: 800; small { font-size: 11px; color: #77837b; font-weight: 600; } `;
 
 const ChipGrid = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 8px; @media (max-width: 380px) { grid-template-columns: 1fr; } `;
 const CoupleChip = styled.button<{ $on?: boolean; $color: string }>`

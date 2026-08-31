@@ -22,7 +22,6 @@ const WARN_AT = Math.round(MONTH_MAX * 0.8);  // soglia gialla (avvicinamento al
 
 type BoardMode = "couples" | "players";
 type Period = "week" | "month" | "all";
-type RankBy = "wins" | "pct";
 
 export default function ClassificaDalVivo() {
   const [players, setPlayers] = useState<Player[]>([]);
@@ -35,7 +34,6 @@ export default function ClassificaDalVivo() {
   const [showCal, setShowCal] = useState(false);
   const [boardMode, setBoardMode] = useState<BoardMode>("couples");
   const [period, setPeriod] = useState<Period>("week");
-  const [rankBy, setRankBy] = useState<RankBy>("pct");
   const [toast, setToast] = useState("");
   const [pair, setPair] = useState<string[]>([]); // coppie selezionate per registrare
   const [h2h, setH2h] = useState<string>("");     // coppia scelta per scontri diretti
@@ -144,16 +142,14 @@ export default function ClassificaDalVivo() {
   // si adatta a quanto si gioca, ma non supera mai 25.
   const leaderGames = rawBoard.reduce((mx, r) => Math.max(mx, r.g), 0);
   const minGames = Math.min(25, Math.max(5, Math.round(leaderGames * 0.5)));
-  // classifica ordinata secondo la metrica scelta
-  const boardRows = useMemo(() => rankBy === "wins"
-    ? [...rawBoard].sort((a, b) => b.w - a.w || b.g - a.g)
-    : rawBoard.filter((x) => x.g >= minGames).sort((a, b) => b.pct - a.pct || b.g - a.g),
-    [rawBoard, rankBy, minGames]);
-  // in modalità % : chi non ha abbastanza partite per essere classificato
-  const unranked = useMemo(() => rankBy === "pct"
-    ? [...rawBoard].filter((x) => x.g < minGames).sort((a, b) => b.g - a.g)
-    : [],
-    [rawBoard, rankBy, minGames]);
+  // classifica ordinata per % vittorie (tra i qualificati)
+  const boardRows = useMemo(() =>
+    rawBoard.filter((x) => x.g >= minGames).sort((a, b) => b.pct - a.pct || b.g - a.g),
+    [rawBoard, minGames]);
+  // chi non ha abbastanza partite per essere classificato
+  const unranked = useMemo(() =>
+    [...rawBoard].filter((x) => x.g < minGames).sort((a, b) => b.g - a.g),
+    [rawBoard, minGames]);
 
   // Scontri diretti (all-time) della coppia scelta
   const h2hId = h2h || activeCouples[0]?.id || couples[0]?.id || "";
@@ -351,10 +347,6 @@ export default function ClassificaDalVivo() {
                 <ModeBtn $on={period === "month"} onClick={() => setPeriod("month")}>Mese</ModeBtn>
                 <ModeBtn $on={period === "all"} onClick={() => setPeriod("all")}>Sempre</ModeBtn>
               </ModeToggle>
-              <ModeToggle style={{ marginTop: 8 }}>
-                <ModeBtn $on={rankBy === "wins"} onClick={() => setRankBy("wins")}>🏆 Vittorie</ModeBtn>
-                <ModeBtn $on={rankBy === "pct"} onClick={() => setRankBy("pct")}>📈 % vittorie</ModeBtn>
-              </ModeToggle>
               <Board style={{ marginTop: 12 }}>
                 <BoardTitle>
                   {period === "week" ? "🏆 Settimana" : period === "month" ? "📅 Mese" : "⭐ Sempre"}
@@ -364,17 +356,15 @@ export default function ClassificaDalVivo() {
                     ? `${fromKey(weekStart).getDate()}–${fromKey(weekEnd).getDate()} ${MESI[fromKey(weekEnd).getMonth()].slice(0, 3)}`
                     : period === "month" ? MESI[selected.getMonth()] : "storico completo"}
                 </BoardHint>
-                {boardRows.length > 0 && <ColHead>{rankBy === "wins" ? "vinte / giocate" : "% · vinte/giocate"}</ColHead>}
+                {boardRows.length > 0 && <ColHead>% · vinte/giocate</ColHead>}
                 {boardRows.map((r, i) => (
                   <BoardRow key={r.id} $lead={i === 0}>
                     <Rank>{i === 0 ? "👑" : i + 1}</Rank><Dot style={{ background: r.color }} />
                     <BoardName>{r.label}</BoardName>
-                    {rankBy === "wins"
-                      ? <BoardWins>{r.w}<Games>/{r.g}</Games></BoardWins>
-                      : <BoardWins>{r.pct}%<Games> · {r.w}/{r.g}</Games></BoardWins>}
+                    <BoardWins>{r.pct}%<Games> · {r.w}/{r.g}</Games></BoardWins>
                   </BoardRow>
                 ))}
-                {boardRows.length === 0 && <MiniEmpty>{rankBy === "pct" ? `Nessun ${boardMode === "players" ? "giocatore" : "coppia"} con almeno ${minGames} partite` : "Nessuna partita in questo periodo"}</MiniEmpty>}
+                {boardRows.length === 0 && <MiniEmpty>Nessun {boardMode === "players" ? "giocatore" : "coppia"} con almeno {minGames} partite</MiniEmpty>}
                 {unranked.length > 0 && (
                   <>
                     <ColHead style={{ marginTop: 14 }}>non qualificati · meno di {minGames} partite</ColHead>
@@ -388,9 +378,7 @@ export default function ClassificaDalVivo() {
                 )}
               </Board>
               <Legend>
-                {rankBy === "wins"
-                  ? `Ordinata per vittorie · ${boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}`
-                  : `Ordinata per % vittorie · min ${minGames} partite per qualificarsi (50% di chi gioca di più, max 25)`}
+                Ordinata per % vittorie · min {minGames} partite per qualificarsi (50% di chi gioca di più, max 25)
                 {boardMode === "players" && period === "month" ? ` · max ${MONTH_MAX} partite/mese` : ""}
               </Legend>
 

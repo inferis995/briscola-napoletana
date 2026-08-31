@@ -97,6 +97,13 @@ export default function TorneiPage() {
   const colorOf = (id: string) => COLORS[Math.max(0, couples.findIndex((c) => c.id === id)) % COLORS.length];
   const activeCouples = couples.filter((c) => c.active);
 
+  // Albo d'oro: tornei vinti per coppia (solo tornei conclusi). Nessun singolo.
+  const albo = useMemo(() => {
+    const m = new Map<string, number>();
+    tournaments.forEach((t) => { if (t.status === "done" && t.winner_couple_id) m.set(t.winner_couple_id, (m.get(t.winner_couple_id) || 0) + 1); });
+    return Array.from(m.entries()).map(([id, n]) => ({ id, n })).sort((a, b) => b.n - a.n);
+  }, [tournaments]);
+
   // PIN helpers
   const lock = () => { setUnlocked(false); setPin(""); try { localStorage.removeItem(LS_PIN); } catch {} };
   const openUnlock = () => { setPinInput(""); setPinErr(""); setPinModal(pinSet ? "enter" : "set"); };
@@ -208,6 +215,21 @@ export default function TorneiPage() {
                         </TCard>
                       ))}
                     </List>
+                  )}
+
+                  {albo.length > 0 && (
+                    <Section>
+                      <SectionTitle style={{ fontSize: 16 }}>🏅 Albo d&apos;oro</SectionTitle>
+                      <ColHead>tornei vinti</ColHead>
+                      {albo.map((a, i) => (
+                        <BoardRow key={a.id} $lead={i === 0}>
+                          <Rank>{i + 1}</Rank><Dot style={{ background: colorOf(a.id) }} />
+                          <BoardName>{coupleLabel(a.id)}</BoardName>
+                          <BoardWins>{a.n}<Games> 🏆</Games></BoardWins>
+                        </BoardRow>
+                      ))}
+                      <Empty style={{ marginTop: 8, fontSize: 12 }}>Classifica tornei · solo per coppia — un trofeo per ogni torneo vinto</Empty>
+                    </Section>
                   )}
                 </>
               )}

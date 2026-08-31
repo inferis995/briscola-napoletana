@@ -17,6 +17,7 @@ const MESI = ["gennaio", "febbraio", "marzo", "aprile", "maggio", "giugno", "lug
 const GIORNI = ["Lunedì", "Martedì", "Mercoledì", "Giovedì", "Venerdì", "Sabato", "Domenica"];
 const COLORS = ["#d4a017", "#2196f3", "#e63946", "#35a566", "#a06cd5", "#ff8c42", "#e0b0ff", "#4dd0c1"];
 const LS_PIN = "briscola_live_pin";
+const MONTH_MAX = 50;  // partite dal vivo massime al mese per giocatore (i tornei non contano)
 
 type BoardMode = "couples" | "players";
 type Period = "week" | "month" | "all";
@@ -55,7 +56,7 @@ export default function ClassificaDalVivo() {
     const [p, c, m] = await Promise.all([
       supabase.from("players").select("*").order("created_at"),
       supabase.from("couples").select("*").order("created_at"),
-      supabase.from("matches").select("*").order("created_at"),
+      supabase.from("matches").select("*").is("source_tournament_match_id", null).order("created_at"),
     ]);
     if (p.error || c.error || m.error) setErr("Errore di connessione. Tocca per riprovare.");
     else { setPlayers(p.data as Player[]); setCouples(c.data as Couple[]); setMatches(m.data as Match[]); }
@@ -103,6 +104,16 @@ export default function ClassificaDalVivo() {
   const inWeek = (d: string) => d >= weekStart && d <= weekEnd;
   const monthPrefix = `${selected.getFullYear()}-${pad(selected.getMonth() + 1)}`;
   const inMonth = (d: string) => d.startsWith(monthPrefix);
+
+  // partite dal vivo di un giocatore nel mese selezionato (per il limite mensile)
+  const monthCountOf = (pid: string) =>
+    matches.filter((m) => inMonth(m.played_on) &&
+      couples.some((c) => (c.id === m.winner_couple_id || c.id === m.loser_couple_id) && (c.player1_id === pid || c.player2_id === pid))
+    ).length;
+  // giocatori delle due coppie selezionate + eventuali giocatori già al tetto mensile
+  const pairPlayerIds = pair.flatMap((cid) => { const c = couples.find((x) => x.id === cid); return c ? [c.player1_id, c.player2_id] : []; });
+  const pairBlocked = pairPlayerIds.filter((pid) => monthCountOf(pid) >= MONTH_MAX);
+  const canRecordPair = pairBlocked.length === 0;
 
   const coupleBoard = (r: (d: string) => boolean) =>
     couples.map((c) => {
@@ -195,8 +206,12 @@ export default function ClassificaDalVivo() {
   const recordWin = (winner: string, loser: string) => {
     if (!unlocked) { openUnlock(); return; }
     supabase.rpc("add_match", { pin, d: selKey, winner, loser }).then(({ error }) => {
-      if (error) { if (String(error.message || "").includes("PIN")) lock(); setErr("Non riuscito."); }
-      else { setPair([]); flash("✓ Partita registrata"); }
+      if (error) {
+        const msg = String(error.message || "");
+        if (msg.includes("PIN")) { lock(); setErr("Sessione scaduta, sblocca di nuovo."); }
+        else if (msg.includes("Limite")) { setErr("⚠️ " + msg); }
+        else setErr("Non riuscito.");
+      } else { setPair([]); flash("✓ Partita registrata"); }
       load();
     });
   };
@@ -268,16 +283,26 @@ export default function ClassificaDalVivo() {
                   </>
                 ) : (
                   <WinnerPick>
-                    <StepHint>2 · Tocca la coppia che ha VINTO 🏆</StepHint>
-                    <WinBtns>
-                      <WinBtn $color={colorOf(pair[0])} onClick={() => recordWin(pair[0], pair[1])}>
-                        <Dot style={{ background: colorOf(pair[0]) }} />{labelById(pair[0])}
-                      </WinBtn>
-                      <Vs>oppure</Vs>
-                      <WinBtn $color={colorOf(pair[1])} onClick={() => recordWin(pair[1], pair[0])}>
-                        <Dot style={{ background: colorOf(pair[1]) }} />{labelById(pair[1])}
-                      </WinBtn>
-                    </WinBtns>
+                    {canRecordPair ? (
+                      <>
+                        <StepHint>2 · Tocca la coppia che ha VINTO 🏆</StepHint>
+                        <WinBtns>
+                          <WinBtn $color={colorOf(pair[0])} onClick={() => recordWin(pair[0], pair[1])}>
+                            <Dot style={{ background: colorOf(pair[0]) }} />{labelById(pair[0])}
+                          </WinBtn>
+                          <Vs>oppure</Vs>
+                          <WinBtn $color={colorOf(pair[1])} onClick={() => recordWin(pair[1], pair[0])}>
+                            <Dot style={{ background: colorOf(pair[1]) }} />{labelById(pair[1])}
+                          </WinBtn>
+                        </WinBtns>
+                      </>
+                    ) : (
+                      <LimitBox>
+                        🚫 Limite mensile raggiunto ({MONTH_MAX} partite):<br />
+                        <b>{pairBlocked.map(playerName).join(", ")}</b>
+                        <small>Non è possibile registrare altre partite di {MONTH_MAX <= 1 ? "questo giocatore" : "questi giocatori"} in {MESI[selected.getMonth()]}.</small>
+                      </LimitBox>
+                    )}
                     <ClearBtn onClick={() => setPair([])}>← Cambia coppie</ClearBtn>
                   </WinnerPick>
                 )}
@@ -323,7 +348,7 @@ export default function ClassificaDalVivo() {
                 ))}
                 {boardRows.length === 0 && <MiniEmpty>Nessuna partita in questo periodo</MiniEmpty>}
               </Board>
-              <Legend>Vinte / giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}</Legend>
+              <Legend>Vinte / giocate · {boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}{boardMode === "players" && period === "month" ? ` · max ${MONTH_MAX} partite/mese` : ""}</Legend>
 
               {/* ===== SCONTRI DIRETTI ===== */}
               {couples.length >= 2 && (
@@ -499,6 +524,7 @@ const SectionTitle = styled.h2` font-family: var(--font-display), serif; font-si
 const Empty = styled.p` color: #77837b; font-size: 14px; margin: 4px 0 0; b { color: #d4a017; } `;
 const MiniEmpty = styled.p` color: #5c6659; font-size: 13px; margin: 8px 0; text-align: center; `;
 const StepHint = styled.p` font-size: 13px; color: #d4a017; font-weight: 600; margin: 0 0 10px; text-align: center; `;
+const LimitBox = styled.div` background: rgba(230,57,70,0.12); border: 1.5px solid rgba(230,57,70,0.45); border-radius: 12px; padding: 14px; text-align: center; font-size: 14px; font-weight: 700; color: #ff8b96; line-height: 1.5; b { color: #ffd0d5; display: inline-block; margin: 2px 0; } small { display: block; margin-top: 6px; font-size: 12px; font-weight: 500; color: #c98f95; } `;
 
 const ChipGrid = styled.div` display: grid; grid-template-columns: 1fr 1fr; gap: 8px; @media (max-width: 380px) { grid-template-columns: 1fr; } `;
 const CoupleChip = styled.button<{ $on?: boolean; $color: string }>`

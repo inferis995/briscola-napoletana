@@ -138,8 +138,10 @@ export default function ClassificaDalVivo() {
 
   const boardFn = boardMode === "couples" ? coupleBoard : playerBoard;
   const rangeFn = period === "week" ? inWeek : period === "month" ? inMonth : () => true;
-  const minGames = period === "week" ? 5 : 10;   // partite minime per qualificarsi nella classifica per %
   const rawBoard = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, weekStart, weekEnd, monthPrefix]); // eslint-disable-line
+  // partite minime per qualificarsi nella classifica per %: fisse.
+  // Mese/Sempre = 25 (metà del tetto mensile di 50); Settimana = 10.
+  const minGames = period === "week" ? 10 : 25;
   // classifica ordinata secondo la metrica scelta
   const boardRows = useMemo(() => rankBy === "wins"
     ? [...rawBoard].sort((a, b) => b.w - a.w || b.g - a.g)

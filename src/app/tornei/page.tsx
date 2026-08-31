@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import styled, { createGlobalStyle } from "styled-components";
 import { supabase, Player, Couple, Tournament, TournamentTeam, TournamentMatch, TournamentFormat } from "@/lib/supabase";
 
@@ -18,6 +18,8 @@ export default function TorneiPage() {
   const [tournaments, setTournaments] = useState<Tournament[]>([]);
   const [teams, setTeams] = useState<TournamentTeam[]>([]);
   const [tmatches, setTmatches] = useState<TournamentMatch[]>([]);
+  const [photos, setPhotos] = useState<Record<string, string>>({});
+  const [lightbox, setLightbox] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [err, setErr] = useState<string | null>(null);
   const [toast, setToast] = useState("");
@@ -41,17 +43,21 @@ export default function TorneiPage() {
 
   const load = useCallback(async () => {
     setErr(null);
-    const [p, c, t, tt, tm] = await Promise.all([
+    const [p, c, t, tt, tm, ph] = await Promise.all([
       supabase.from("players").select("*").order("created_at"),
       supabase.from("couples").select("*").order("created_at"),
       supabase.from("tournaments").select("*").order("created_at", { ascending: false }),
       supabase.from("tournament_teams").select("*"),
       supabase.from("tournament_matches").select("*"),
+      supabase.from("tournament_photos").select("tournament_id, image"),
     ]);
     if (p.error || c.error || t.error || tt.error || tm.error) setErr("Errore di connessione. Tocca per riprovare.");
     else {
       setPlayers(p.data as Player[]); setCouples(c.data as Couple[]);
       setTournaments(t.data as Tournament[]); setTeams(tt.data as TournamentTeam[]); setTmatches(tm.data as TournamentMatch[]);
+      const pm: Record<string, string> = {};
+      (ph.data as { tournament_id: string; image: string }[] | null)?.forEach((r) => { pm[r.tournament_id] = r.image; });
+      setPhotos(pm);
     }
     setLoading(false);
   }, []);
@@ -68,6 +74,7 @@ export default function TorneiPage() {
       .on("postgres_changes", { event: "*", schema: "public", table: "tournaments" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "tournament_matches" }, () => load())
       .on("postgres_changes", { event: "*", schema: "public", table: "tournament_teams" }, () => load())
+      .on("postgres_changes", { event: "*", schema: "public", table: "tournament_photos" }, () => load())
       .subscribe();
     return () => { supabase.removeChannel(ch); };
   }, [load]);
@@ -80,6 +87,10 @@ export default function TorneiPage() {
     } catch { /* utente ha annullato o non supportato: provo la copia */ }
     try { await navigator.clipboard.writeText(text); flash("📋 Copiato — incolla su WhatsApp"); }
     catch { setErr("Copia non riuscita. Seleziona e copia manualmente."); }
+  };
+  const setTournamentPhoto = async (tid: string, dataUrl: string | null) => {
+    const { error } = await rpc("set_tournament_photo", { tid, image_data: dataUrl ?? "" });
+    if (!error) flash(dataUrl ? "📷 Foto salvata" : "Foto rimossa");
   };
   const playerName = useCallback((id: string) => players.find((p) => p.id === id)?.name || "?", [players]);
   const coupleLabel = useCallback((id: string) => { const c = couples.find((x) => x.id === id); return c ? `${playerName(c.player1_id)} & ${playerName(c.player2_id)}` : "?"; }, [couples, playerName]);
@@ -181,6 +192,10 @@ export default function TorneiPage() {
                     <List>
                       {tournaments.map((t) => (
                         <TCard key={t.id} onClick={() => setView({ t: "detail", id: t.id })}>
+                          {photos[t.id] && (
+                            <Thumb src={photos[t.id]} alt="Foto vincitori"
+                              onClick={(e) => { e.stopPropagation(); setLightbox(photos[t.id]); }} />
+                          )}
                           <div style={{ flex: 1, minWidth: 0 }}>
                             <TName>{t.name}</TName>
                             <TMeta>
@@ -273,12 +288,19 @@ export default function TorneiPage() {
                   coupleLabel={coupleLabel} colorOf={colorOf}
                   unlocked={unlocked} onWinner={setWinner} onFinish={finishManual} onDelete={deleteTournament}
                   onShare={shareText}
+                  photo={photos[detail.id]} onSetPhoto={setTournamentPhoto} onOpenPhoto={setLightbox}
                 />
               )}
             </>
           )}
         </Container>
 
+        {lightbox && (
+          <Lightbox onClick={() => setLightbox(null)}>
+            <img src={lightbox} alt="Foto torneo" />
+            <LightClose>✕</LightClose>
+          </Lightbox>
+        )}
         {toast && <Toast>{toast}</Toast>}
         {pinModal && (
           <ModalScrim onClick={() => setPinModal(null)}>
@@ -297,14 +319,22 @@ export default function TorneiPage() {
 }
 
 // ===== DETTAGLIO TORNEO =====
-function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, onWinner, onFinish, onDelete, onShare }: {
+function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, onWinner, onFinish, onDelete, onShare, photo, onSetPhoto, onOpenPhoto }: {
   t: Tournament; teams: TournamentTeam[]; matches: TournamentMatch[];
   coupleLabel: (id: string) => string; colorOf: (id: string) => string;
   unlocked: boolean; onWinner: (m: string, w: string) => void; onFinish: (tid: string, w: string) => void; onDelete: (tid: string) => void;
   onShare: (text: string) => void;
+  photo?: string; onSetPhoto: (tid: string, dataUrl: string | null) => void; onOpenPhoto: (url: string) => void;
 }) {
   const isKnockout = t.format !== "triangular";
   const [manual, setManual] = useState("");
+  const [busy, setBusy] = useState(false);
+  const fileRef = useRef<HTMLInputElement>(null);
+  const onPick = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    if (f) { setBusy(true); try { onSetPhoto(t.id, await fileToDataUrl(f)); } catch { /* immagine non valida */ } setBusy(false); }
+    e.target.value = "";
+  };
 
   const standings = useMemo(() => teams.map((tm) => {
     const w = matches.filter((m) => m.winner === tm.couple_id).length;
@@ -337,6 +367,25 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
       <ShareBtn onClick={() => onShare(buildExport(t, teams, matches, coupleLabel))}>
         📤 Esporta per WhatsApp
       </ShareBtn>
+
+      <PhotoZone>
+        {photo ? (
+          <>
+            <PhotoImg src={photo} alt="Foto vincitori" onClick={() => onOpenPhoto(photo)} />
+            {unlocked && (
+              <PhotoActions>
+                <SmallGhost onClick={() => fileRef.current?.click()} disabled={busy}>{busy ? "…" : "📷 Cambia foto"}</SmallGhost>
+                <SmallGhost $danger onClick={() => onSetPhoto(t.id, null)}>Rimuovi</SmallGhost>
+              </PhotoActions>
+            )}
+          </>
+        ) : unlocked ? (
+          <PhotoUpload onClick={() => fileRef.current?.click()} disabled={busy}>
+            {busy ? "Carico…" : "📷 Carica foto vincitori"}
+          </PhotoUpload>
+        ) : null}
+        <input ref={fileRef} type="file" accept="image/*" hidden onChange={onPick} />
+      </PhotoZone>
 
       {isKnockout ? (
         <div>
@@ -430,6 +479,21 @@ function MatchCard({ m, coupleLabel, colorOf, unlocked, onWinner }: {
 }
 
 // ===== helpers =====
+// Comprime l'immagine sul dispositivo (max lato ~1000px, JPEG) per salvarla leggera.
+async function fileToDataUrl(file: File, maxDim = 1000, quality = 0.72): Promise<string> {
+  const bmp = await createImageBitmap(file);
+  let w = bmp.width, h = bmp.height;
+  const scale = Math.min(1, maxDim / Math.max(w, h));
+  w = Math.round(w * scale); h = Math.round(h * scale);
+  const canvas = document.createElement("canvas");
+  canvas.width = w; canvas.height = h;
+  const ctx = canvas.getContext("2d");
+  if (!ctx) throw new Error("no ctx");
+  ctx.drawImage(bmp, 0, 0, w, h);
+  bmp.close?.();
+  return canvas.toDataURL("image/jpeg", quality);
+}
+
 const fromISO = (s: string) => { const [y, m, d] = s.split("-"); return `${d} ${MESI[parseInt(m, 10) - 1]} ${y}`; };
 const fmtLabel = (f: string) => f === "triangular" ? "Girone" : f === "knockout4" ? "Eliminazione (4)" : f === "knockout8" ? "Eliminazione (8)" : f;
 
@@ -493,6 +557,14 @@ const Loading = styled.div` text-align: center; color: #a09880; padding: 40px 0;
 const CreateBtn = styled.button` width: 100%; background: #d4a017; color: #0a120a; border: none; padding: 14px; border-radius: 12px; font-weight: 800; font-size: 15px; cursor: pointer; &:disabled { opacity: 0.4; cursor: not-allowed; } `;
 const DangerBtn = styled.button` width: 100%; margin-top: 16px; background: transparent; color: #e63946; border: 1px solid rgba(230,57,70,0.4); padding: 12px; border-radius: 12px; font-weight: 700; font-size: 14px; cursor: pointer; `;
 const ShareBtn = styled.button` width: 100%; margin: 12px 0 4px; background: rgba(37,211,102,0.12); color: #4ee38a; border: 1.5px solid rgba(37,211,102,0.45); padding: 13px; border-radius: 12px; font-weight: 800; font-size: 14.5px; cursor: pointer; &:active { background: rgba(37,211,102,0.2); } `;
+const Thumb = styled.img` width: 48px; height: 48px; border-radius: 10px; object-fit: cover; flex-shrink: 0; border: 1.5px solid rgba(212,160,23,0.4); cursor: zoom-in; `;
+const PhotoZone = styled.div` margin: 8px 0 4px; `;
+const PhotoImg = styled.img` width: 100%; max-height: 260px; object-fit: cover; border-radius: 14px; border: 1.5px solid rgba(212,160,23,0.35); cursor: zoom-in; display: block; `;
+const PhotoActions = styled.div` display: flex; gap: 8px; margin-top: 8px; `;
+const SmallGhost = styled.button<{ $danger?: boolean }>` flex: 1; padding: 9px; border-radius: 10px; font-size: 13px; font-weight: 700; cursor: pointer; background: transparent; border: 1.5px solid ${(p) => (p.$danger ? "rgba(230,57,70,0.4)" : "rgba(212,160,23,0.3)")}; color: ${(p) => (p.$danger ? "#e63946" : "#d4a017")}; &:disabled { opacity: 0.5; } `;
+const PhotoUpload = styled.button` width: 100%; padding: 13px; border-radius: 12px; font-size: 14px; font-weight: 700; cursor: pointer; background: rgba(19,33,19,0.6); border: 1.5px dashed rgba(212,160,23,0.4); color: #d4a017; &:disabled { opacity: 0.6; } `;
+const Lightbox = styled.div` position: fixed; inset: 0; background: rgba(0,0,0,0.92); display: flex; align-items: center; justify-content: center; z-index: 300; padding: 16px; cursor: zoom-out; img { max-width: 100%; max-height: 100%; border-radius: 10px; } `;
+const LightClose = styled.div` position: fixed; top: 16px; right: 20px; color: #fff; font-size: 26px; font-weight: 700; `;
 const List = styled.div` display: flex; flex-direction: column; gap: 10px; margin-top: 16px; `;
 const TCard = styled.div` display: flex; align-items: center; gap: 12px; background: rgba(19,33,19,0.6); border: 1px solid rgba(212,160,23,0.14); border-radius: 14px; padding: 14px 16px; cursor: pointer; `;
 const TName = styled.div` font-family: var(--font-display), serif; font-size: 17px; font-weight: 700; `;

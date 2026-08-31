@@ -161,6 +161,10 @@ export default function TorneiPage() {
     const { error } = await rpc("set_tournament_winner", { match_id: matchId, w });
     if (!error) flash("✓ Risultato salvato");
   };
+  const correctWinner = async (matchId: string, w: string) => {
+    const { error } = await rpc("correct_tournament_match", { match_id: matchId, w });
+    if (!error) flash("✏️ Risultato corretto");
+  };
   const finishManual = async (tid: string, w: string) => {
     const { error } = await rpc("finish_tournament", { tid, w });
     if (!error) flash("🏆 Campione assegnato");
@@ -308,7 +312,7 @@ export default function TorneiPage() {
                   teams={teams.filter((x) => x.tournament_id === detail.id)}
                   matches={tmatches.filter((x) => x.tournament_id === detail.id)}
                   coupleLabel={coupleLabel} colorOf={colorOf}
-                  unlocked={unlocked} onWinner={setWinner} onFinish={finishManual} onDelete={deleteTournament}
+                  unlocked={unlocked} onWinner={setWinner} onCorrect={correctWinner} onFinish={finishManual} onDelete={deleteTournament}
                   onShare={shareText}
                   photo={photos[detail.id]} onSetPhoto={setTournamentPhoto} onOpenPhoto={setLightbox}
                 />
@@ -341,10 +345,10 @@ export default function TorneiPage() {
 }
 
 // ===== DETTAGLIO TORNEO =====
-function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, onWinner, onFinish, onDelete, onShare, photo, onSetPhoto, onOpenPhoto }: {
+function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, onWinner, onCorrect, onFinish, onDelete, onShare, photo, onSetPhoto, onOpenPhoto }: {
   t: Tournament; teams: TournamentTeam[]; matches: TournamentMatch[];
   coupleLabel: (id: string) => string; colorOf: (id: string) => string;
-  unlocked: boolean; onWinner: (m: string, w: string) => void; onFinish: (tid: string, w: string) => void; onDelete: (tid: string) => void;
+  unlocked: boolean; onWinner: (m: string, w: string) => void; onCorrect: (m: string, w: string) => void; onFinish: (tid: string, w: string) => void; onDelete: (tid: string) => void;
   onShare: (text: string) => void;
   photo?: string; onSetPhoto: (tid: string, dataUrl: string | null) => void; onOpenPhoto: (url: string) => void;
 }) {
@@ -414,7 +418,7 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
           {rounds.map(([r, ms]) => (
             <Section key={r}>
               <SectionTitle style={{ fontSize: 16 }}>{ms[0]?.label || `Turno ${r}`}</SectionTitle>
-              {ms.map((m) => <MatchCard key={m.id} m={m} coupleLabel={coupleLabel} colorOf={colorOf} unlocked={unlocked} onWinner={onWinner} />)}
+              {ms.map((m) => <MatchCard key={m.id} m={m} coupleLabel={coupleLabel} colorOf={colorOf} unlocked={unlocked} onWinner={onWinner} onCorrect={onCorrect} />)}
             </Section>
           ))}
         </div>
@@ -445,7 +449,7 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
                   {ms.map((m, idx) => (
                     <div key={m.id}>
                       {ms.length > 1 && <TableTag>Tavolo {idx + 1}</TableTag>}
-                      <MatchCard m={m} coupleLabel={coupleLabel} colorOf={colorOf} unlocked={unlocked} onWinner={onWinner} />
+                      <MatchCard m={m} coupleLabel={coupleLabel} colorOf={colorOf} unlocked={unlocked} onWinner={onWinner} onCorrect={onCorrect} />
                     </div>
                   ))}
                 </div>
@@ -475,27 +479,36 @@ function TournamentDetail({ t, teams, matches, coupleLabel, colorOf, unlocked, o
   );
 }
 
-function MatchCard({ m, coupleLabel, colorOf, unlocked, onWinner }: {
+function MatchCard({ m, coupleLabel, colorOf, unlocked, onWinner, onCorrect }: {
   m: TournamentMatch; coupleLabel: (id: string) => string; colorOf: (id: string) => string;
-  unlocked: boolean; onWinner: (mid: string, w: string) => void;
+  unlocked: boolean; onWinner: (mid: string, w: string) => void; onCorrect: (mid: string, w: string) => void;
 }) {
+  const [edit, setEdit] = useState(false);
   const ready = m.team_a && m.team_b;
   if (!ready) return <PendingCard>In attesa dei vincitori del turno precedente…</PendingCard>;
   const decided = !!m.winner;
+  const picking = !decided || edit;   // modalità scelta: entrambe le coppie cliccabili
+  const choose = (team: string) => {
+    if (!unlocked) return;
+    if (decided) onCorrect(m.id, team); else onWinner(m.id, team);
+    setEdit(false);
+  };
   return (
     <MCard>
-      <MSide $win={m.winner === m.team_a} $dim={decided && m.winner !== m.team_a}
-        onClick={() => !decided && unlocked && onWinner(m.id, m.team_a!)}>
+      <MSide $win={!picking && m.winner === m.team_a} $dim={!picking && m.winner !== m.team_a}
+        onClick={() => picking && choose(m.team_a!)}>
         <Dot style={{ background: colorOf(m.team_a!) }} />{coupleLabel(m.team_a!)}
-        {m.winner === m.team_a && <WinMark>🏆</WinMark>}
+        {!picking && m.winner === m.team_a && <WinMark>🏆</WinMark>}
       </MSide>
-      <MMid>{decided ? "batte" : "vs"}</MMid>
-      <MSide $win={m.winner === m.team_b} $dim={decided && m.winner !== m.team_b}
-        onClick={() => !decided && unlocked && onWinner(m.id, m.team_b!)}>
+      <MMid>{picking ? "vs" : "batte"}</MMid>
+      <MSide $win={!picking && m.winner === m.team_b} $dim={!picking && m.winner !== m.team_b}
+        onClick={() => picking && choose(m.team_b!)}>
         <Dot style={{ background: colorOf(m.team_b!) }} />{coupleLabel(m.team_b!)}
-        {m.winner === m.team_b && <WinMark>🏆</WinMark>}
+        {!picking && m.winner === m.team_b && <WinMark>🏆</WinMark>}
       </MSide>
-      {!decided && <MHint>{unlocked ? "tocca chi ha vinto" : "🔒 sblocca per segnare"}</MHint>}
+      {picking && <MHint>{unlocked ? (edit ? "tocca il nuovo vincitore" : "tocca chi ha vinto") : "🔒 sblocca per segnare"}</MHint>}
+      {decided && !edit && unlocked && <EditBtn onClick={() => setEdit(true)}>✏️ Correggi risultato</EditBtn>}
+      {edit && <EditBtn $ghost onClick={() => setEdit(false)}>← annulla</EditBtn>}
     </MCard>
   );
 }
@@ -622,6 +635,7 @@ const MSide = styled.button<{ $win?: boolean; $dim?: boolean }>` display: flex; 
 const WinMark = styled.span` margin-left: auto; `;
 const MMid = styled.div` text-align: center; font-size: 11px; color: #77837b; text-transform: uppercase; letter-spacing: 1px; font-weight: 700; `;
 const MHint = styled.div` text-align: center; font-size: 11px; color: #5c6659; `;
+const EditBtn = styled.button<{ $ghost?: boolean }>` align-self: center; margin-top: 2px; padding: 6px 12px; border-radius: 9px; font-size: 12px; font-weight: 700; cursor: pointer; background: ${(p) => (p.$ghost ? "transparent" : "rgba(212,160,23,0.12)")}; border: 1px solid rgba(212,160,23,0.3); color: ${(p) => (p.$ghost ? "#a09880" : "#d4a017")}; `;
 const PendingCard = styled.div` background: rgba(10,16,10,0.4); border: 1px dashed rgba(212,160,23,0.15); border-radius: 12px; padding: 16px; text-align: center; color: #5c6659; font-size: 13px; margin-bottom: 8px; `;
 const GiornataHead = styled.div` display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 6px 0 8px; span { font-family: var(--font-display), serif; font-size: 15px; color: #f0cf7a; font-weight: 700; } `;
 const Rest = styled.span` font-size: 11px; color: #77837b; font-weight: 600; `;

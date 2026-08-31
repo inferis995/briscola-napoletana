@@ -138,8 +138,12 @@ export default function ClassificaDalVivo() {
 
   const boardFn = boardMode === "couples" ? coupleBoard : playerBoard;
   const rangeFn = period === "week" ? inWeek : period === "month" ? inMonth : () => true;
-  const minGames = period === "week" ? 5 : 10;   // partite minime per qualificarsi nella classifica per %
   const rawBoard = useMemo(() => boardFn(rangeFn), [boardMode, period, couples, players, matches, weekStart, weekEnd, monthPrefix]); // eslint-disable-line
+  // soglia per qualificarsi nella classifica per %: 50% delle partite di chi gioca
+  // di più nel periodo. Minimo 5, massimo 25 (metà del tetto di 50 partite/mese):
+  // si adatta a quanto si gioca, ma non supera mai 25.
+  const leaderGames = rawBoard.reduce((mx, r) => Math.max(mx, r.g), 0);
+  const minGames = Math.min(25, Math.max(5, Math.round(leaderGames * 0.5)));
   // classifica ordinata secondo la metrica scelta
   const boardRows = useMemo(() => rankBy === "wins"
     ? [...rawBoard].sort((a, b) => b.w - a.w || b.g - a.g)
@@ -386,7 +390,7 @@ export default function ClassificaDalVivo() {
               <Legend>
                 {rankBy === "wins"
                   ? `Ordinata per vittorie · ${boardMode === "players" ? "somma di tutte le coppie del giocatore" : "per coppia"}`
-                  : `Ordinata per % vittorie · min ${minGames} partite per qualificarsi`}
+                  : `Ordinata per % vittorie · min ${minGames} partite per qualificarsi (50% di chi gioca di più, max 25)`}
                 {boardMode === "players" && period === "month" ? ` · max ${MONTH_MAX} partite/mese` : ""}
               </Legend>
 

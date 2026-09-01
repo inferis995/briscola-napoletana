@@ -202,7 +202,9 @@ export default function ClassificaDalVivo() {
     if (!unlocked) { openUnlock(); return; }
     const { error } = await supabase.rpc(rpc, { pin, ...args });
     if (error) {
-      if (String(error.message || "").includes("PIN")) { lock(); setErr("Sessione scaduta, sblocca di nuovo."); }
+      const msg = String(error.message || "");
+      if (msg.includes("PIN")) { lock(); setErr("Sessione scaduta, sblocca di nuovo."); }
+      else if (msg.includes("duplicate key") || (error as any).code === "23505") { setErr("Questa coppia esiste già."); }
       else setErr("Operazione non riuscita.");
     }
     load();

@@ -474,7 +474,7 @@ export default function ClassificaDalVivo() {
                   )}
                   <SectionTitle style={{ fontSize: 16 }}>Giocatori</SectionTitle>
                   <ChipList>
-                    {players.map((p) => <Chip key={p.id}>{p.name}{unlocked && <Del onClick={() => guard("delete_player", { p_id: p.id })}>×</Del>}</Chip>)}
+                    {players.map((p) => <Chip key={p.id}>{p.name}</Chip>)}
                     {players.length === 0 && <Empty>Aggiungi i giocatori uno per uno.</Empty>}
                   </ChipList>
                   {unlocked && (
@@ -488,7 +488,7 @@ export default function ClassificaDalVivo() {
                     {couples.map((c) => (
                       <CoupleMngRow key={c.id} $off={!c.active}>
                         <Dot style={{ background: colorOf(c.id) }} /><span style={{ flex: 1 }}>{coupleLabel(c)}</span>
-                        {unlocked && <><SmallBtn onClick={() => guard("set_couple_active", { c_id: c.id, a: !c.active })}>{c.active ? "Sospendi" : "Riattiva"}</SmallBtn><Del onClick={() => guard("delete_couple", { c_id: c.id })}>×</Del></>}
+                        {unlocked && <SmallBtn onClick={() => guard("set_couple_active", { c_id: c.id, a: !c.active })}>{c.active ? "Sospendi" : "Riattiva"}</SmallBtn>}
                       </CoupleMngRow>
                     ))}
                     {couples.length === 0 && <Empty>Forma una coppia scegliendo due giocatori.</Empty>}
